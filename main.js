@@ -106,7 +106,7 @@ function createTray() {
 
   updateTrayMenu();
 
-  tray.setToolTip('JMT Player - 济民堂广告播放器');
+  tray.setToolTip('济民堂播放器');
 
   // 双击托盘图标显示窗口
   tray.on('double-click', () => {
@@ -161,21 +161,103 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
-// 设置系统音量（使用 PowerShell）
+// 设置系统音量（使用 Windows Core Audio API）
 function setSystemVolume(level) {
-  const script = `
-    $volume = ${level / 100};
-    $obj = new-object -com wscript.shell;
-    # 先静音再调整音量
-    1..50 | ForEach-Object { $obj.SendKeys([char]174) }
-    Start-Sleep -Milliseconds 100;
-    $steps = [math]::Round($volume * 50);
-    1..$steps | ForEach-Object { $obj.SendKeys([char]175) }
-  `;
+  // 创建 PowerShell 脚本文件来设置音量
+  const volumeScript = `
+$code = @'
+using System;
+using System.Runtime.InteropServices;
 
-  exec(`powershell -Command "${script.replace(/\n/g, ' ')}"`, (error) => {
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume {
+  int _0(); int _1(); int _2(); int _3();
+  int SetMasterVolumeLevelScalar(float fLevel, System.Guid pguidEventContext);
+  int _5();
+  int GetMasterVolumeLevelScalar(out float pfLevel);
+  int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, System.Guid pguidEventContext);
+}
+
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice {
+  int Activate(ref System.Guid id, int clsCtx, int activationParams, out IAudioEndpointVolume aev);
+}
+
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator {
+  int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+}
+
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
+
+public class Audio {
+  static IAudioEndpointVolume Vol() {
+    var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+    IMMDevice dev = null;
+    Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out dev));
+    IAudioEndpointVolume epv = null;
+    var epvid = typeof(IAudioEndpointVolume).GUID;
+    Marshal.ThrowExceptionForHR(dev.Activate(ref epvid, 23, 0, out epv));
+    return epv;
+  }
+  public static float Volume {
+    get { float v = -1; Marshal.ThrowExceptionForHR(Vol().GetMasterVolumeLevelScalar(out v)); return v; }
+    set { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(value, System.Guid.Empty)); }
+  }
+  public static bool Mute {
+    set { Marshal.ThrowExceptionForHR(Vol().SetMute(value, System.Guid.Empty)); }
+  }
+}
+'@
+Add-Type -TypeDefinition $code
+[Audio]::Mute = $false
+[Audio]::Volume = ${level / 100}
+`;
+
+  // 将脚本保存为临时文件并执行
+  const fs = require('fs');
+  const os = require('os');
+  const scriptPath = path.join(os.tmpdir(), 'jmt_setvol.ps1');
+
+  fs.writeFileSync(scriptPath, volumeScript, 'utf8');
+
+  exec(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, (error, stdout, stderr) => {
+    // 清理临时文件
+    try { fs.unlinkSync(scriptPath); } catch (e) { }
+
     if (error) {
-      console.error('设置音量失败:', error);
+      console.error('设置音量失败:', error.message);
+      console.log('尝试备用方法...');
+      fallbackSetVolume(level);
+    } else {
+      console.log('系统音量已设置为:', level + '%');
+    }
+  });
+}
+
+// 备用音量设置方法（使用模拟按键）
+function fallbackSetVolume(level) {
+  const steps = Math.round(level / 2);
+  const script = `
+$wsh = New-Object -ComObject WScript.Shell
+for ($i = 0; $i -lt 50; $i++) { $wsh.SendKeys([char]174) }
+Start-Sleep -Milliseconds 300
+for ($i = 0; $i -lt ${steps}; $i++) { $wsh.SendKeys([char]175) }
+`;
+
+  const fs = require('fs');
+  const os = require('os');
+  const scriptPath = path.join(os.tmpdir(), 'jmt_setvol_fallback.ps1');
+
+  fs.writeFileSync(scriptPath, script, 'utf8');
+
+  exec(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, (error) => {
+    try { fs.unlinkSync(scriptPath); } catch (e) { }
+
+    if (error) {
+      console.error('备用音量设置失败:', error.message);
+    } else {
+      console.log('系统音量已设置 (备用方法):', level + '%');
     }
   });
 }
