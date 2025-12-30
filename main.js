@@ -1,7 +1,11 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog } = require('electron');
+﻿const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { exec } = require('child_process');
+
+// 允许跨域音频访问（用于 OfflineAudioContext 混音）
+app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
+app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 // 持久化存储
 const store = new Store({
@@ -48,8 +52,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      backgroundThrottling: false, // 后台不降速，保证音频播放
-      webSecurity: true
+      backgroundThrottling: false,
+      webSecurity: true,
+      allowRunningInsecureContent: true,
+      experimentalFeatures: true
     },
     show: false,
     autoHideMenuBar: true
@@ -57,6 +63,20 @@ function createWindow() {
 
   // 加载目标网页
   mainWindow.loadURL('https://player.coren.xin/');
+
+  // 监听渲染进程崩溃
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('渲染进程崩溃:', details.reason);
+    if (details.reason !== 'clean-exit') {
+      mainWindow.reload();
+    }
+  });
+
+  // 监听页面崩溃
+  mainWindow.webContents.on('crashed', () => {
+    console.error('页面崩溃，重新加载');
+    mainWindow.reload();
+  });
 
   // 窗口准备好后显示
   mainWindow.once('ready-to-show', () => {
@@ -392,3 +412,37 @@ if (process.argv.includes('--hidden')) {
     }
   });
 }
+
+// Blob 文件保存处理
+ipcMain.handle('save-blob-file', async (event, { data, filename, mimeType }) => {
+  const fs = require('fs');
+
+  try {
+    let filters = [{ name: '所有文件', extensions: ['*'] }];
+    if (mimeType && mimeType.includes('audio')) {
+      filters.unshift({ name: 'MP3 音频', extensions: ['mp3'] });
+    }
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: filename,
+      filters: filters
+    });
+
+    if (result.canceled) {
+      return { success: false, canceled: true };
+    }
+
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(result.filePath, buffer);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('保存文件失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 打开外部链接
+ipcMain.on('open-external', (event, url) => {
+  shell.openExternal(url);
+});

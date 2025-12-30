@@ -2,42 +2,46 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // 暴露 API 给渲染进程
 contextBridge.exposeInMainWorld('jmtAPI', {
-    getSettings: () => ipcRenderer.invoke('get-settings'),
-    saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
-    onAutoPlay: (callback) => ipcRenderer.on('auto-play', callback),
-    onTogglePlay: (callback) => ipcRenderer.on('toggle-play', callback),
-    onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
-    notifyPlayState: (playing) => ipcRenderer.send('play-state-changed', playing)
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  onAutoPlay: (callback) => ipcRenderer.on('auto-play', callback),
+  onTogglePlay: (callback) => ipcRenderer.on('toggle-play', callback),
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
+  notifyPlayState: (playing) => ipcRenderer.send('play-state-changed', playing),
+  saveBlobFile: (data, filename, mimeType) => ipcRenderer.invoke('save-blob-file', { data, filename, mimeType }),
+  openExternal: (url) => ipcRenderer.send('open-external', url)
 });
 
 // 页面加载完成后注入功能
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('JMT Player preload script loaded');
+  console.log('JMT Player preload script loaded');
 
-    // 等待页面完全加载
-    setTimeout(() => {
-        initFloatingButton();
-        initPlaybackControl();
-        initSettings();
-    }, 1000);
+  // 等待页面完全加载
+  setTimeout(() => {
+    initFloatingButton();
+    initPlaybackControl();
+    initSettings();
+    initBlobDownload();
+    initMixRedirect();
+  }, 1000);
 });
 
 // 初始化悬浮设置按钮
 async function initFloatingButton() {
-    const settings = await ipcRenderer.invoke('get-settings');
+  const settings = await ipcRenderer.invoke('get-settings');
 
-    // 创建悬浮按钮容器
-    const floatingBtn = document.createElement('div');
-    floatingBtn.id = 'jmt-floating-btn';
-    floatingBtn.innerHTML = `
+  // 创建悬浮按钮容器
+  const floatingBtn = document.createElement('div');
+  floatingBtn.id = 'jmt-floating-btn';
+  floatingBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="24" height="24" fill="white">
       <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
     </svg>
   `;
 
-    // 样式
-    const style = document.createElement('style');
-    style.textContent = `
+  // 样式
+  const style = document.createElement('style');
+  style.textContent = `
     #jmt-floating-btn {
       position: fixed;
       bottom: 20px;
@@ -232,12 +236,12 @@ async function initFloatingButton() {
     }
   `;
 
-    document.head.appendChild(style);
+  document.head.appendChild(style);
 
-    // 设置面板 HTML
-    const settingsPanel = document.createElement('div');
-    settingsPanel.id = 'jmt-settings-panel';
-    settingsPanel.innerHTML = `
+  // 设置面板 HTML
+  const settingsPanel = document.createElement('div');
+  settingsPanel.id = 'jmt-settings-panel';
+  settingsPanel.innerHTML = `
     <div class="jmt-settings-content">
       <div class="jmt-settings-title">
         <svg viewBox="0 0 24 24" width="28" height="28">
@@ -286,128 +290,193 @@ async function initFloatingButton() {
     </div>
   `;
 
-    document.body.appendChild(settingsPanel);
-    document.body.appendChild(floatingBtn);
+  document.body.appendChild(settingsPanel);
+  document.body.appendChild(floatingBtn);
 
-    // 根据设置显示/隐藏悬浮按钮
-    if (!settings.showFloatingButton) {
-        floatingBtn.style.display = 'none';
+  // 根据设置显示/隐藏悬浮按钮
+  if (!settings.showFloatingButton) {
+    floatingBtn.style.display = 'none';
+  }
+
+  // 事件绑定
+  floatingBtn.addEventListener('click', () => {
+    settingsPanel.classList.add('show');
+    loadSettingsToUI();
+  });
+
+  settingsPanel.addEventListener('click', (e) => {
+    if (e.target === settingsPanel) {
+      settingsPanel.classList.remove('show');
     }
+  });
 
-    // 事件绑定
-    floatingBtn.addEventListener('click', () => {
-        settingsPanel.classList.add('show');
-        loadSettingsToUI();
+  settingsPanel.querySelector('.jmt-btn-close').addEventListener('click', () => {
+    settingsPanel.classList.remove('show');
+  });
+
+  // 开关绑定
+  settingsPanel.querySelectorAll('.jmt-toggle').forEach(toggle => {
+    toggle.addEventListener('click', async () => {
+      toggle.classList.toggle('active');
+      const setting = toggle.dataset.setting;
+      const value = toggle.classList.contains('active');
+      await ipcRenderer.invoke('save-settings', { [setting]: value });
     });
+  });
 
-    settingsPanel.addEventListener('click', (e) => {
-        if (e.target === settingsPanel) {
-            settingsPanel.classList.remove('show');
-        }
-    });
+  // 音量滑块
+  const volumeSlider = settingsPanel.querySelector('.jmt-volume-slider');
+  const volumeValue = settingsPanel.querySelector('.jmt-volume-value');
 
-    settingsPanel.querySelector('.jmt-btn-close').addEventListener('click', () => {
-        settingsPanel.classList.remove('show');
-    });
+  volumeSlider.addEventListener('input', () => {
+    const value = volumeSlider.value;
+    volumeValue.textContent = value + '%';
+    volumeSlider.style.setProperty('--value', value + '%');
+  });
 
-    // 开关绑定
-    settingsPanel.querySelectorAll('.jmt-toggle').forEach(toggle => {
-        toggle.addEventListener('click', async () => {
-            toggle.classList.toggle('active');
-            const setting = toggle.dataset.setting;
-            const value = toggle.classList.contains('active');
-            await ipcRenderer.invoke('save-settings', { [setting]: value });
-        });
-    });
-
-    // 音量滑块
-    const volumeSlider = settingsPanel.querySelector('.jmt-volume-slider');
-    const volumeValue = settingsPanel.querySelector('.jmt-volume-value');
-
-    volumeSlider.addEventListener('input', () => {
-        const value = volumeSlider.value;
-        volumeValue.textContent = value + '%';
-        volumeSlider.style.setProperty('--value', value + '%');
-    });
-
-    volumeSlider.addEventListener('change', async () => {
-        await ipcRenderer.invoke('save-settings', { volumeLevel: parseInt(volumeSlider.value) });
-    });
+  volumeSlider.addEventListener('change', async () => {
+    await ipcRenderer.invoke('save-settings', { volumeLevel: parseInt(volumeSlider.value) });
+  });
 }
 
 // 加载设置到 UI
 async function loadSettingsToUI() {
-    const settings = await ipcRenderer.invoke('get-settings');
-    const panel = document.getElementById('jmt-settings-panel');
+  const settings = await ipcRenderer.invoke('get-settings');
+  const panel = document.getElementById('jmt-settings-panel');
 
-    panel.querySelectorAll('.jmt-toggle').forEach(toggle => {
-        const setting = toggle.dataset.setting;
-        if (settings[setting]) {
-            toggle.classList.add('active');
-        } else {
-            toggle.classList.remove('active');
-        }
-    });
+  panel.querySelectorAll('.jmt-toggle').forEach(toggle => {
+    const setting = toggle.dataset.setting;
+    if (settings[setting]) {
+      toggle.classList.add('active');
+    } else {
+      toggle.classList.remove('active');
+    }
+  });
 
-    const volumeSlider = panel.querySelector('.jmt-volume-slider');
-    const volumeValue = panel.querySelector('.jmt-volume-value');
-    volumeSlider.value = settings.volumeLevel;
-    volumeValue.textContent = settings.volumeLevel + '%';
-    volumeSlider.style.setProperty('--value', settings.volumeLevel + '%');
+  const volumeSlider = panel.querySelector('.jmt-volume-slider');
+  const volumeValue = panel.querySelector('.jmt-volume-value');
+  volumeSlider.value = settings.volumeLevel;
+  volumeValue.textContent = settings.volumeLevel + '%';
+  volumeSlider.style.setProperty('--value', settings.volumeLevel + '%');
 }
 
 // 初始化播放控制
 function initPlaybackControl() {
-    // 获取播放按钮
-    const getPlayButton = () => document.querySelector('.control-btn.primary');
+  // 获取播放按钮
+  const getPlayButton = () => document.querySelector('.control-btn.primary');
 
-    // 监控播放状态
-    const checkPlayState = () => {
-        const btn = getPlayButton();
-        if (btn) {
-            // 根据按钮状态判断是否在播放
-            const svg = btn.querySelector('svg');
-            if (svg) {
-                const path = svg.querySelector('path');
-                if (path) {
-                    // 播放图标通常是三角形，暂停是两条竖线
-                    const d = path.getAttribute('d');
-                    const isPlaying = d && d.includes('M6') && !d.includes('M14'); // 简化判断
-                    ipcRenderer.send('play-state-changed', !isPlaying);
-                }
-            }
+  // 监控播放状态
+  const checkPlayState = () => {
+    const btn = getPlayButton();
+    if (btn) {
+      // 根据按钮状态判断是否在播放
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        const path = svg.querySelector('path');
+        if (path) {
+          // 播放图标通常是三角形，暂停是两条竖线
+          const d = path.getAttribute('d');
+          const isPlaying = d && d.includes('M6') && !d.includes('M14'); // 简化判断
+          ipcRenderer.send('play-state-changed', !isPlaying);
         }
-    };
+      }
+    }
+  };
 
-    // 定期检查播放状态
-    setInterval(checkPlayState, 1000);
+  // 定期检查播放状态
+  setInterval(checkPlayState, 1000);
 
-    // 自动播放
-    ipcRenderer.on('auto-play', () => {
-        const btn = getPlayButton();
-        if (btn) {
-            btn.click();
-            console.log('自动播放已触发');
-        }
-    });
+  // 自动播放
+  ipcRenderer.on('auto-play', () => {
+    const btn = getPlayButton();
+    if (btn) {
+      btn.click();
+      console.log('自动播放已触发');
+    }
+  });
 
-    // 切换播放
-    ipcRenderer.on('toggle-play', () => {
-        const btn = getPlayButton();
-        if (btn) {
-            btn.click();
-            console.log('播放/暂停已触发');
-        }
-    });
+  // 切换播放
+  ipcRenderer.on('toggle-play', () => {
+    const btn = getPlayButton();
+    if (btn) {
+      btn.click();
+      console.log('播放/暂停已触发');
+    }
+  });
 }
 
 // 初始化设置监听
 function initSettings() {
-    ipcRenderer.on('open-settings', () => {
-        const panel = document.getElementById('jmt-settings-panel');
-        if (panel) {
-            panel.classList.add('show');
-            loadSettingsToUI();
+  ipcRenderer.on('open-settings', () => {
+    const panel = document.getElementById('jmt-settings-panel');
+    if (panel) {
+      panel.classList.add('show');
+      loadSettingsToUI();
+    }
+  });
+}
+
+// 初始化 Blob 下载拦截
+function initBlobDownload() {
+  // 保存原始的 URL.createObjectURL
+  const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+  const blobMap = new Map();
+
+  URL.createObjectURL = function (blob) {
+    const url = originalCreateObjectURL(blob);
+    blobMap.set(url, blob);
+    return url;
+  };
+
+  // 监听下载链接点击
+  document.addEventListener('click', async (e) => {
+    const anchor = e.target.closest('a[download]');
+    if (anchor && anchor.href && anchor.href.startsWith('blob:')) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      try {
+        let blob = blobMap.get(anchor.href);
+        if (!blob) {
+          const response = await fetch(anchor.href);
+          blob = await response.blob();
         }
-    });
+
+        const arrayBuffer = await blob.arrayBuffer();
+        const result = await ipcRenderer.invoke('save-blob-file', {
+          data: Array.from(new Uint8Array(arrayBuffer)),
+          filename: anchor.download || 'download.mp3',
+          mimeType: blob.type
+        });
+
+        if (result.success) {
+          console.log('文件已保存:', result.filePath);
+        }
+      } catch (err) {
+        console.error('保存文件失败:', err);
+      }
+    }
+  }, true);
+
+  console.log('Blob 下载拦截已启用');
+}
+
+// 拦截混音下载按钮，重定向到浏览器
+function initMixRedirect() {
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#mix-download-btn');
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      // 通过 IPC 打开浏览器
+      ipcRenderer.send('open-external', 'https://player.coren.xin/');
+
+      alert('混音功能需要在浏览器中使用，已为您打开浏览器。');
+      location.reload();
+      return false;
+    }
+  }, true);
+  console.log('混音重定向已启用');
 }
