@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { exec } = require('child_process');
@@ -96,6 +96,43 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // 处理下载
+  mainWindow.webContents.session.on('will-download', (event, item, webContents) => {
+    // 弹出保存对话框让用户选择保存位置
+    const fileName = item.getFilename();
+
+    dialog.showSaveDialog(mainWindow, {
+      defaultPath: fileName,
+      filters: [
+        { name: '所有文件', extensions: ['*'] }
+      ]
+    }).then(result => {
+      if (!result.canceled && result.filePath) {
+        item.setSavePath(result.filePath);
+
+        item.on('updated', (event, state) => {
+          if (state === 'progressing') {
+            if (!item.isPaused()) {
+              const progress = item.getReceivedBytes() / item.getTotalBytes();
+              mainWindow.setProgressBar(progress);
+            }
+          }
+        });
+
+        item.once('done', (event, state) => {
+          mainWindow.setProgressBar(-1);
+          if (state === 'completed') {
+            console.log('下载完成:', result.filePath);
+          } else {
+            console.log('下载失败:', state);
+          }
+        });
+      } else {
+        item.cancel();
+      }
+    });
+  });
 }
 
 // 创建系统托盘
@@ -108,8 +145,8 @@ function createTray() {
 
   tray.setToolTip('济民堂播放器');
 
-  // 双击托盘图标显示窗口
-  tray.on('double-click', () => {
+  // 左键单击托盘图标显示窗口
+  tray.on('click', () => {
     if (mainWindow) {
       mainWindow.show();
       mainWindow.focus();
@@ -145,6 +182,14 @@ function updateTrayMenu() {
           mainWindow.show();
           mainWindow.focus();
           mainWindow.webContents.send('open-settings');
+        }
+      }
+    },
+    {
+      label: '刷新页面',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.webContents.reload();
         }
       }
     },
