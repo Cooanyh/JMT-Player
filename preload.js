@@ -36,6 +36,8 @@ window.addEventListener('DOMContentLoaded', () => {
     initSettings();
     initBlobDownload();
     initMixRedirect();
+    initPlaybackGuard();  // 播放保持机制
+    initHeartbeatResponse();  // 心跳响应
   }, 1000);
 });
 
@@ -776,4 +778,87 @@ async function initUpdateUI() {
   });
 
   console.log('更新 UI 已初始化');
+}
+
+// ==================== 播放可靠性增强 ====================
+
+// 播放保持机制 - 检测播放中断并自动恢复
+function initPlaybackGuard() {
+  let shouldBePlaying = false;
+  let lastPlayTime = 0;
+
+  // 监听播放事件
+  document.addEventListener('play', (e) => {
+    if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
+      shouldBePlaying = true;
+      lastPlayTime = Date.now();
+      console.log('检测到播放开始');
+    }
+  }, true);
+
+  // 监听暂停事件
+  document.addEventListener('pause', (e) => {
+    if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
+      // 只有用户主动暂停才更新状态
+      // 如果是意外暂停（如缓冲），不更新 shouldBePlaying
+      const timeSincePlay = Date.now() - lastPlayTime;
+      if (timeSincePlay > 1000) {
+        // 播放超过1秒后暂停，可能是用户操作
+        shouldBePlaying = false;
+        console.log('检测到播放暂停');
+      }
+    }
+  }, true);
+
+  // 监听播放结束
+  document.addEventListener('ended', (e) => {
+    if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
+      shouldBePlaying = false;
+      console.log('播放结束');
+    }
+  }, true);
+
+  // 定期检查播放状态
+  setInterval(() => {
+    const audioElements = document.querySelectorAll('audio');
+    const videoElements = document.querySelectorAll('video');
+    const allMedia = [...audioElements, ...videoElements];
+
+    allMedia.forEach(media => {
+      // 如果应该播放但实际暂停了（不是用户操作），尝试恢复
+      if (shouldBePlaying && media.paused && !media.ended && media.readyState >= 2) {
+        console.log('检测到播放异常中断，尝试恢复...');
+        media.play().then(() => {
+          console.log('播放已恢复');
+        }).catch(err => {
+          console.log('自动恢复播放失败:', err.message);
+        });
+      }
+    });
+  }, 5000);
+
+  // 阻止页面可见性变化导致的节流
+  try {
+    Object.defineProperty(document, 'hidden', {
+      get: () => false,
+      configurable: true
+    });
+    Object.defineProperty(document, 'visibilityState', {
+      get: () => 'visible',
+      configurable: true
+    });
+  } catch (e) {
+    console.log('无法覆盖 visibilityState:', e.message);
+  }
+
+  console.log('播放保持机制已启用');
+}
+
+// 心跳响应 - 响应主进程的心跳检测
+function initHeartbeatResponse() {
+  ipcRenderer.on('heartbeat-ping', () => {
+    ipcRenderer.send('heartbeat-pong');
+  });
+
+  console.log('心跳响应已启用');
 }

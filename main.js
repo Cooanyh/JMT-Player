@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog } = require('electron');
+﻿const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog, powerSaveBlocker } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { exec } = require('child_process');
@@ -7,6 +7,9 @@ const { autoUpdater } = require('electron-updater');
 // 允许跨域音频访问（用于 OfflineAudioContext 混音）
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 app.commandLine.appendSwitch('disable-site-isolation-trials');
+// 禁用后台节流，保持应用活跃
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 // 持久化存储
 const store = new Store({
@@ -24,6 +27,7 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let isPlaying = false;
+let powerSaveBlockerId = null; // 电源保持锁 ID
 
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock();
@@ -77,6 +81,27 @@ function createWindow() {
   mainWindow.webContents.on('crashed', () => {
     console.error('页面崩溃，重新加载');
     mainWindow.reload();
+  });
+
+  // 监听页面加载失败 - 自动重试
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('页面加载失败:', errorCode, errorDescription);
+    // 延迟3秒后重新加载
+    setTimeout(() => {
+      console.log('尝试重新加载页面...');
+      mainWindow.loadURL('https://player.coren.xin/');
+    }, 3000);
+  });
+
+  // 页面加载完成后触发自动播放
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('页面加载完成');
+    if (store.get('autoPlay')) {
+      setTimeout(() => {
+        mainWindow.webContents.send('auto-play');
+        console.log('发送自动播放指令');
+      }, 2000);
+    }
   });
 
   // 窗口准备好后显示
@@ -392,6 +417,15 @@ app.whenReady().then(() => {
 
   // 初始化自动更新
   initAutoUpdater();
+
+  // 启用电源保持锁 - 防止系统休眠和息屏
+  initPowerSaveBlocker();
+
+  // 启动心跳检测
+  initHeartbeat();
+
+  // 阻止系统休眠（通过 Windows API）
+  preventSystemSleep();
 });
 
 app.on('window-all-closed', () => {
@@ -601,4 +635,96 @@ ipcMain.handle('get-update-status', () => {
     updateInfo,
     updateDownloaded
   };
+});
+
+// ==================== 电源保持与防休眠 ====================
+
+// 初始化电源保持锁
+function initPowerSaveBlocker() {
+  // 防止应用挂起（播放音频时很重要）
+  powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+  console.log('电源保持锁已启用, ID:', powerSaveBlockerId);
+
+  // 同时启用防止显示器关闭
+  const displayBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+  console.log('防止显示器休眠已启用, ID:', displayBlockerId);
+}
+
+// 心跳检测 - 定期检查渲染进程状态
+function initHeartbeat() {
+  let lastPongTime = Date.now();
+
+  // 监听心跳响应
+  ipcMain.on('heartbeat-pong', () => {
+    lastPongTime = Date.now();
+  });
+
+  // 每30秒发送心跳
+  setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('heartbeat-ping');
+
+      // 检查是否超过60秒没有响应
+      if (Date.now() - lastPongTime > 60000) {
+        console.warn('渲染进程无响应，尝试重载页面');
+        lastPongTime = Date.now(); // 重置，避免连续重载
+        mainWindow.reload();
+      }
+    }
+  }, 30000);
+
+  console.log('心跳检测已启动');
+}
+
+// 阻止系统休眠（Windows 特定）
+function preventSystemSleep() {
+  // 使用 PowerShell 调用 Windows API 阻止休眠
+  const sleepScript = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class PowerState {
+    [DllImport("kernel32.dll")]
+    public static extern uint SetThreadExecutionState(uint esFlags);
+    
+    public const uint ES_CONTINUOUS = 0x80000000;
+    public const uint ES_SYSTEM_REQUIRED = 0x00000001;
+    public const uint ES_DISPLAY_REQUIRED = 0x00000002;
+    
+    public static void PreventSleep() {
+        SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+    }
+}
+"@
+[PowerState]::PreventSleep()
+`;
+
+  const fs = require('fs');
+  const os = require('os');
+  const scriptPath = path.join(os.tmpdir(), 'jmt_prevent_sleep.ps1');
+
+  fs.writeFileSync(scriptPath, sleepScript, 'utf8');
+
+  exec(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, (error) => {
+    try { fs.unlinkSync(scriptPath); } catch (e) { }
+
+    if (error) {
+      console.error('防休眠设置失败:', error.message);
+    } else {
+      console.log('系统防休眠已启用');
+    }
+  });
+
+  // 每5分钟刷新一次防休眠状态
+  setInterval(() => {
+    fs.writeFileSync(scriptPath, sleepScript, 'utf8');
+    exec(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, () => {
+      try { fs.unlinkSync(scriptPath); } catch (e) { }
+    });
+  }, 300000);
+}
+
+// 心跳 IPC
+ipcMain.on('heartbeat-pong', () => {
+  // 已在 initHeartbeat 中处理
 });
