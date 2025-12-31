@@ -460,7 +460,7 @@ let updateDownloaded = false;
 // 初始化自动更新
 function initAutoUpdater() {
   // 配置日志
-  autoUpdater.logger = require('electron').app;
+  autoUpdater.logger = console;
   autoUpdater.autoDownload = false; // 不自动下载，让用户确认
   autoUpdater.autoInstallOnAppQuit = true; // 退出时自动安装
 
