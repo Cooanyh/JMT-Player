@@ -19,7 +19,8 @@ const store = new Store({
     autoVolume: true,
     volumeLevel: 80,
     showFloatingButton: true,
-    windowBounds: { width: 1280, height: 800 }
+    windowBounds: { width: 1280, height: 800 },
+    pendingUpdateVersion: null  // 存储检测到的待更新版本
   }
 });
 
@@ -510,6 +511,10 @@ function initAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     console.log('发现新版本:', info.version);
     updateInfo = info;
+
+    // 存储待更新版本
+    store.set('pendingUpdateVersion', info.version);
+
     if (mainWindow) {
       mainWindow.webContents.send('update-available', {
         version: info.version,
@@ -517,11 +522,16 @@ function initAutoUpdater() {
         releaseNotes: info.releaseNotes
       });
     }
+
+    // 显示更新弹窗
+    showUpdateDialog(info.version);
   });
 
   // 没有可用更新
   autoUpdater.on('update-not-available', (info) => {
     console.log('已是最新版本');
+    // 清除待更新版本标记（说明已经是最新版本）
+    store.set('pendingUpdateVersion', null);
     if (mainWindow) {
       mainWindow.webContents.send('update-not-available');
     }
@@ -545,6 +555,8 @@ function initAutoUpdater() {
   autoUpdater.on('update-downloaded', (info) => {
     console.log('更新下载完成');
     updateDownloaded = true;
+    // 清除待更新版本标记
+    store.set('pendingUpdateVersion', null);
     if (mainWindow) {
       mainWindow.setProgressBar(-1);
       mainWindow.webContents.send('update-downloaded', {
@@ -566,6 +578,15 @@ function initAutoUpdater() {
   setTimeout(() => {
     checkForUpdates(true);
   }, 5000);
+
+  // 启动时检查是否有待更新版本，如果有则显示弹窗
+  const pendingVersion = store.get('pendingUpdateVersion');
+  if (pendingVersion) {
+    console.log('检测到待更新版本:', pendingVersion);
+    setTimeout(() => {
+      showUpdateDialog(pendingVersion);
+    }, 3000);
+  }
 }
 
 // 检查更新
@@ -728,3 +749,38 @@ public class PowerState {
 ipcMain.on('heartbeat-pong', () => {
   // 已在 initHeartbeat 中处理
 });
+
+// ==================== 更新弹窗引导 ====================
+
+// 显示更新弹窗
+function showUpdateDialog(version) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const currentVersion = app.getVersion();
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: '发现新版本',
+    message: `济民堂播放器有新版本可用！`,
+    detail: `当前版本: v${currentVersion}\n最新版本: v${version}\n\n建议您立即更新以获得最佳体验。`,
+    buttons: ['立即更新', '稍后提醒'],
+    defaultId: 0,
+    cancelId: 1
+  }).then(result => {
+    if (result.response === 0) {
+      // 用户点击"立即更新"
+      console.log('用户选择立即更新');
+      // 触发下载更新
+      autoUpdater.downloadUpdate().then(() => {
+        console.log('开始下载更新');
+      }).catch(err => {
+        console.error('下载更新失败:', err.message);
+        // 下载失败，打开 Gitee 下载页面
+        shell.openExternal(`https://gitee.com/coren01/JMT-Player/releases/tag/v${version}`);
+      });
+    } else {
+      // 用户点击"稍后提醒"，保持 pendingUpdateVersion
+      console.log('用户选择稍后更新，下次启动将继续提醒');
+    }
+  });
+}

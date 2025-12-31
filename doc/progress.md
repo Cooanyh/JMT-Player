@@ -2,8 +2,26 @@
 
 ## 项目信息
 - **项目名称**: 济民堂播放器 (JMT Player)
-- **当前版本**: 1.5.0
+- **当前版本**: 1.6.0
 - **仓库**: https://github.com/Cooanyh/JMT-Player
+
+## v1.6.0 更新 (2025-12-31)
+
+### 更新内容
+1. ✅ **更新源切换至 Gitee**
+   - 使用 generic provider 指向 Gitee releases
+   - 解决国内用户更新下载慢的问题
+2. ✅ **启动弹窗引导更新**
+   - 检测到新版本时弹窗提示用户更新
+   - 用户选择"稍后"则下次启动继续提醒
+   - 直到用户更新后不再显示
+
+### 技术实现
+- `pendingUpdateVersion` 持久化存储待更新版本
+- `showUpdateDialog` 弹窗引导函数
+- 支持 Gitee releases 下载链接
+
+---
 
 ## v1.5.0 更新 (2025-12-31)
 
