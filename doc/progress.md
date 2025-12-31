@@ -16,9 +16,17 @@
 2. ✅ 添加 `electron-updater` 依赖
 3. ✅ 配置 GitHub 作为更新发布平台
 
+### Bug 修复
+- 修复 `autoUpdater.logger` 配置错误
+- 改进开发模式下更新检查的 UI 状态显示
+
 ### 技术实现
 - 主进程: `autoUpdater` 事件监听和 IPC 接口
 - 预加载脚本: 更新 API 和设置面板 UI
+
+### 构建产物
+- `济民堂播放器 1.4.0.exe` - 便携版
+- `济民堂播放器 Setup 1.4.0.exe` - 安装程序
 
 ---
 
