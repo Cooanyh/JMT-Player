@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld('jmtAPI', {
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
   onUpdateProgress: (callback) => ipcRenderer.on('update-progress', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', callback)
+  onUpdateError: (callback) => ipcRenderer.on('update-error', callback),
+  onUpdateDevMode: (callback) => ipcRenderer.on('update-dev-mode', callback)
 });
 
 // 页面加载完成后注入功能
@@ -761,10 +762,16 @@ async function initUpdateUI() {
     // 开发模式下静默处理
     if (errorMessage && errorMessage.includes('ENOENT') || errorMessage.includes('dev-app-update')) {
       console.log('开发模式，跳过更新检查');
-      hideStatus();
+      showStatus('开发模式，更新检查已跳过', 'latest');
     } else {
       showStatus('更新出错: ' + errorMessage, 'error');
     }
+    actionsEl.style.display = 'none';
+  });
+
+  // 开发模式
+  ipcRenderer.on('update-dev-mode', () => {
+    showStatus('开发模式，更新检查已跳过', 'latest');
     actionsEl.style.display = 'none';
   });
 

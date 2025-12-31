@@ -536,15 +536,30 @@ function initAutoUpdater() {
 
 // 检查更新
 function checkForUpdates(silent = false) {
+  // 检查是否在开发模式
+  if (!app.isPackaged) {
+    console.log('开发模式，跳过更新检查');
+    if (!silent && mainWindow) {
+      mainWindow.webContents.send('update-dev-mode');
+    }
+    return;
+  }
+
   try {
     autoUpdater.checkForUpdates().catch(err => {
       if (!silent) {
         console.error('检查更新失败:', err.message);
       }
+      if (mainWindow) {
+        mainWindow.webContents.send('update-error', err.message);
+      }
     });
   } catch (error) {
     if (!silent) {
       console.error('检查更新异常:', error.message);
+    }
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', error.message);
     }
   }
 }
