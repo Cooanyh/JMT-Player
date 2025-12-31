@@ -9,7 +9,19 @@ contextBridge.exposeInMainWorld('jmtAPI', {
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
   notifyPlayState: (playing) => ipcRenderer.send('play-state-changed', playing),
   saveBlobFile: (data, filename, mimeType) => ipcRenderer.invoke('save-blob-file', { data, filename, mimeType }),
-  openExternal: (url) => ipcRenderer.send('open-external', url)
+  openExternal: (url) => ipcRenderer.send('open-external', url),
+  // 自动更新 API
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
+  onUpdateChecking: (callback) => ipcRenderer.on('update-checking', callback),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
+  onUpdateProgress: (callback) => ipcRenderer.on('update-progress', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', callback)
 });
 
 // 页面加载完成后注入功能
@@ -234,6 +246,140 @@ async function initFloatingButton() {
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
+    
+    .jmt-update-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    
+    .jmt-update-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+    
+    .jmt-version-info {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .jmt-version-info strong {
+      color: #667eea;
+    }
+    
+    .jmt-btn-check-update {
+      padding: 6px 12px;
+      background: #f0f0f0;
+      color: #333;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .jmt-btn-check-update:hover {
+      background: #e0e0e0;
+    }
+    
+    .jmt-btn-check-update:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .jmt-update-status {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    
+    .jmt-update-status.show {
+      display: block;
+    }
+    
+    .jmt-update-status.checking {
+      background: #f0f7ff;
+      color: #1890ff;
+    }
+    
+    .jmt-update-status.available {
+      background: #f6ffed;
+      color: #52c41a;
+    }
+    
+    .jmt-update-status.latest {
+      background: #f6f6f6;
+      color: #999;
+    }
+    
+    .jmt-update-status.error {
+      background: #fff2f0;
+      color: #ff4d4f;
+    }
+    
+    .jmt-update-status.downloading {
+      background: #e6f7ff;
+      color: #1890ff;
+    }
+    
+    .jmt-update-status.downloaded {
+      background: #f6ffed;
+      color: #52c41a;
+    }
+    
+    .jmt-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    
+    .jmt-progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    
+    .jmt-update-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .jmt-btn-download, .jmt-btn-install {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .jmt-btn-download {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .jmt-btn-download:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .jmt-btn-install {
+      background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+      color: white;
+    }
+    
+    .jmt-btn-install:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(82, 196, 26, 0.4);
+    }
   `;
 
   document.head.appendChild(style);
@@ -282,6 +428,18 @@ async function initFloatingButton() {
           <input type="range" class="jmt-volume-slider" min="0" max="100" value="80" data-setting="volumeLevel">
           <span class="jmt-volume-value">80%</span>
         </div>
+      </div>
+      
+      <div class="jmt-update-section">
+        <div class="jmt-update-header">
+          <div class="jmt-version-info">当前版本: <strong id="jmt-current-version">v--</strong></div>
+          <button class="jmt-btn-check-update" id="jmt-check-update-btn">检查更新</button>
+        </div>
+        <div class="jmt-update-status" id="jmt-update-status"></div>
+        <div class="jmt-progress-bar" id="jmt-progress-bar" style="display: none;">
+          <div class="jmt-progress-bar-inner" id="jmt-progress-inner" style="width: 0%;"></div>
+        </div>
+        <div class="jmt-update-actions" id="jmt-update-actions" style="display: none;"></div>
       </div>
       
       <div class="jmt-settings-footer">
@@ -337,6 +495,9 @@ async function initFloatingButton() {
   volumeSlider.addEventListener('change', async () => {
     await ipcRenderer.invoke('save-settings', { volumeLevel: parseInt(volumeSlider.value) });
   });
+
+  // 更新功能初始化
+  initUpdateUI();
 }
 
 // 加载设置到 UI
@@ -479,4 +640,133 @@ function initMixRedirect() {
     }
   }, true);
   console.log('混音重定向已启用');
+}
+
+// 初始化更新 UI
+async function initUpdateUI() {
+  // 获取并显示当前版本
+  const versionEl = document.getElementById('jmt-current-version');
+  const checkBtn = document.getElementById('jmt-check-update-btn');
+  const statusEl = document.getElementById('jmt-update-status');
+  const progressBar = document.getElementById('jmt-progress-bar');
+  const progressInner = document.getElementById('jmt-progress-inner');
+  const actionsEl = document.getElementById('jmt-update-actions');
+
+  // 显示当前版本
+  try {
+    const version = await ipcRenderer.invoke('get-app-version');
+    versionEl.textContent = 'v' + version;
+  } catch (e) {
+    versionEl.textContent = '未知';
+  }
+
+  // 更新状态显示函数
+  function showStatus(message, type) {
+    statusEl.className = 'jmt-update-status show ' + type;
+    statusEl.textContent = message;
+  }
+
+  // 隐藏状态
+  function hideStatus() {
+    statusEl.className = 'jmt-update-status';
+  }
+
+  // 存储更新信息
+  let pendingUpdateVersion = null;
+
+  // 检查更新按钮
+  checkBtn.addEventListener('click', async () => {
+    checkBtn.disabled = true;
+    checkBtn.textContent = '检查中...';
+    showStatus('正在连接更新服务器...', 'checking');
+    progressBar.style.display = 'none';
+    actionsEl.style.display = 'none';
+
+    try {
+      const result = await ipcRenderer.invoke('check-for-updates');
+      if (!result.success) {
+        showStatus('检查更新失败: ' + (result.error || '未知错误'), 'error');
+      }
+      // 成功时会通过事件回调处理
+    } catch (e) {
+      showStatus('检查更新失败: ' + e.message, 'error');
+    }
+
+    checkBtn.disabled = false;
+    checkBtn.textContent = '检查更新';
+  });
+
+  // 监听更新事件
+  ipcRenderer.on('update-checking', () => {
+    showStatus('正在检查更新...', 'checking');
+  });
+
+  ipcRenderer.on('update-available', (event, info) => {
+    pendingUpdateVersion = info.version;
+    showStatus(`发现新版本 v${info.version}！`, 'available');
+    actionsEl.style.display = 'flex';
+    actionsEl.innerHTML = `<button class="jmt-btn-download" id="jmt-download-btn">下载更新</button>`;
+
+    document.getElementById('jmt-download-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('jmt-download-btn');
+      btn.disabled = true;
+      btn.textContent = '开始下载...';
+      showStatus('正在下载更新...', 'downloading');
+      progressBar.style.display = 'block';
+      progressInner.style.width = '0%';
+
+      try {
+        await ipcRenderer.invoke('download-update');
+      } catch (e) {
+        showStatus('下载失败: ' + e.message, 'error');
+        progressBar.style.display = 'none';
+      }
+    });
+  });
+
+  ipcRenderer.on('update-not-available', () => {
+    showStatus('当前已是最新版本 ✓', 'latest');
+    actionsEl.style.display = 'none';
+  });
+
+  ipcRenderer.on('update-progress', (event, progress) => {
+    progressBar.style.display = 'block';
+    progressInner.style.width = progress.percent.toFixed(1) + '%';
+    const mb = (progress.transferred / 1024 / 1024).toFixed(1);
+    const totalMb = (progress.total / 1024 / 1024).toFixed(1);
+    showStatus(`正在下载: ${mb}MB / ${totalMb}MB (${progress.percent.toFixed(1)}%)`, 'downloading');
+  });
+
+  ipcRenderer.on('update-downloaded', (event, info) => {
+    progressBar.style.display = 'none';
+    showStatus(`v${info.version} 下载完成，准备安装`, 'downloaded');
+    actionsEl.style.display = 'flex';
+    actionsEl.innerHTML = `
+      <button class="jmt-btn-install" id="jmt-install-btn">立即重启安装</button>
+      <button class="jmt-btn-check-update" id="jmt-later-btn">稍后安装</button>
+    `;
+
+    document.getElementById('jmt-install-btn').addEventListener('click', async () => {
+      await ipcRenderer.invoke('install-update');
+    });
+
+    document.getElementById('jmt-later-btn').addEventListener('click', () => {
+      showStatus('更新将在下次启动时自动安装', 'latest');
+      actionsEl.style.display = 'none';
+    });
+  });
+
+  ipcRenderer.on('update-error', (event, errorMessage) => {
+    progressBar.style.display = 'none';
+    // 开发模式下静默处理
+    if (errorMessage && errorMessage.includes('ENOENT') || errorMessage.includes('dev-app-update')) {
+      console.log('开发模式，跳过更新检查');
+      hideStatus();
+    } else {
+      showStatus('更新出错: ' + errorMessage, 'error');
+    }
+    actionsEl.style.display = 'none';
+  });
+
+  console.log('更新 UI 已初始化');
 }
