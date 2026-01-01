@@ -2,8 +2,26 @@
 
 ## 项目信息
 - **项目名称**: 济民堂播放器 (JMT Player)
-- **当前版本**: 1.6.0
+- **当前版本**: 1.6.1
 - **仓库**: https://github.com/Cooanyh/JMT-Player
+
+## v1.6.1 更新 (2026-01-01)
+
+### 更新内容
+1. ✅ **修复自动播放功能**
+   - 修正播放按钮选择器为 `#play-toggle-button-desktop`
+   - 使用 FontAwesome 图标类判断播放状态
+   - 支持多种按钮选择器回退机制
+2. ✅ **"仅音乐模式"弹窗提示**
+   - 用户点击"仅音乐模式"后显示 Toast 提示
+   - 提示内容: "广告语将在本轮播放后结束，仅音乐播放"
+
+### 技术实现
+- `initPlaybackControl()` 更新按钮选择器
+- 新增 `initMusicOnlyModeNotification()` 函数
+- 弹窗动画使用 CSS 过渡和 cubic-bezier
+
+---
 
 ## v1.6.0 更新 (2025-12-31)
 

@@ -526,22 +526,34 @@ async function loadSettingsToUI() {
 
 // 初始化播放控制
 function initPlaybackControl() {
-  // 获取播放按钮
-  const getPlayButton = () => document.querySelector('.control-btn.primary');
+  // 获取播放按钮 - 使用正确的选择器
+  const getPlayButton = () => {
+    // 优先使用 ID 选择器
+    return document.getElementById('play-toggle-button-desktop')
+      || document.querySelector('.control-btn.primary')
+      || document.getElementById('cover-play-btn');
+  };
 
   // 监控播放状态
   const checkPlayState = () => {
     const btn = getPlayButton();
     if (btn) {
-      // 根据按钮状态判断是否在播放
-      const svg = btn.querySelector('svg');
-      if (svg) {
-        const path = svg.querySelector('path');
-        if (path) {
-          // 播放图标通常是三角形，暂停是两条竖线
-          const d = path.getAttribute('d');
-          const isPlaying = d && d.includes('M6') && !d.includes('M14'); // 简化判断
-          ipcRenderer.send('play-state-changed', !isPlaying);
+      // 检查 FontAwesome 图标类来判断播放状态
+      const icon = btn.querySelector('i');
+      if (icon) {
+        // fa-pause 表示正在播放，fa-play 表示已暂停
+        const isPlaying = icon.classList.contains('fa-pause');
+        ipcRenderer.send('play-state-changed', isPlaying);
+      } else {
+        // 回退到 SVG 检测
+        const svg = btn.querySelector('svg');
+        if (svg) {
+          const path = svg.querySelector('path');
+          if (path) {
+            const d = path.getAttribute('d');
+            const isPlaying = d && d.includes('M6') && !d.includes('M14');
+            ipcRenderer.send('play-state-changed', !isPlaying);
+          }
         }
       }
     }
@@ -550,12 +562,22 @@ function initPlaybackControl() {
   // 定期检查播放状态
   setInterval(checkPlayState, 1000);
 
-  // 自动播放
+  // 自动播放 - 确保点击正确的按钮
   ipcRenderer.on('auto-play', () => {
     const btn = getPlayButton();
     if (btn) {
-      btn.click();
-      console.log('自动播放已触发');
+      // 检查当前是否已经是暂停状态（显示 play 图标）
+      const icon = btn.querySelector('i');
+      const needsClick = icon ? icon.classList.contains('fa-play') : true;
+
+      if (needsClick) {
+        btn.click();
+        console.log('自动播放已触发 - 点击按钮:', btn.id || btn.className);
+      } else {
+        console.log('自动播放已触发 - 已经在播放中');
+      }
+    } else {
+      console.log('自动播放失败 - 未找到播放按钮');
     }
   });
 
@@ -567,6 +589,88 @@ function initPlaybackControl() {
       console.log('播放/暂停已触发');
     }
   });
+
+  // 监听"仅音乐模式"按钮，显示提示弹窗
+  initMusicOnlyModeNotification();
+}
+
+// 初始化"仅音乐模式"弹窗提示
+function initMusicOnlyModeNotification() {
+  // 创建弹窗样式
+  const style = document.createElement('style');
+  style.textContent = `
+    .jmt-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+      z-index: 200000;
+      font-size: 15px;
+      font-weight: 500;
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      text-align: center;
+      max-width: 90%;
+    }
+    .jmt-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .jmt-toast .toast-icon {
+      margin-right: 10px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // 创建 Toast 容器
+  const toast = document.createElement('div');
+  toast.className = 'jmt-toast';
+  toast.innerHTML = '<span class="toast-icon">🎵</span>广告语将在本轮播放后结束，仅音乐播放';
+  document.body.appendChild(toast);
+
+  // 显示 Toast 的函数
+  const showToast = () => {
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  };
+
+  // 监听"仅音乐模式"按钮点击
+  const setupMusicOnlyListener = () => {
+    const musicOnlyBtn = document.getElementById('music-only-button-desktop');
+    if (musicOnlyBtn) {
+      musicOnlyBtn.addEventListener('click', () => {
+        // 延迟检查按钮状态，确保状态已更新
+        setTimeout(() => {
+          if (musicOnlyBtn.classList.contains('active')) {
+            showToast();
+            console.log('仅音乐模式已开启，显示提示');
+          }
+        }, 100);
+      });
+      console.log('仅音乐模式弹窗监听已设置');
+      return true;
+    }
+    return false;
+  };
+
+  // 初始尝试设置监听器
+  if (!setupMusicOnlyListener()) {
+    // 如果按钮还未加载，延迟重试
+    const retryInterval = setInterval(() => {
+      if (setupMusicOnlyListener()) {
+        clearInterval(retryInterval);
+      }
+    }, 1000);
+    // 最多重试10次
+    setTimeout(() => clearInterval(retryInterval), 10000);
+  }
 }
 
 // 初始化设置监听
