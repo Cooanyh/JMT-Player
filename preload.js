@@ -601,44 +601,98 @@ function initMusicOnlyModeNotification() {
   style.textContent = `
     .jmt-toast {
       position: fixed;
-      top: 20px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%) translateY(-100px);
+      transform: translate(-50%, -50%) scale(0.8);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 15px 30px;
-      border-radius: 10px;
-      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+      padding: 25px 35px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
       z-index: 200000;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 500;
       opacity: 0;
-      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
       text-align: center;
       max-width: 90%;
+      pointer-events: none;
     }
     .jmt-toast.show {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
     }
     .jmt-toast .toast-icon {
-      margin-right: 10px;
+      display: block;
+      font-size: 40px;
+      margin-bottom: 15px;
+    }
+    .jmt-toast .toast-message {
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .jmt-toast .toast-confirm-btn {
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 10px 40px;
+      border-radius: 25px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    .jmt-toast .toast-confirm-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+    .jmt-toast-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 199999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .jmt-toast-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
     }
   `;
   document.head.appendChild(style);
 
+  // 创建遮罩层
+  const overlay = document.createElement('div');
+  overlay.className = 'jmt-toast-overlay';
+  document.body.appendChild(overlay);
+
   // 创建 Toast 容器
   const toast = document.createElement('div');
   toast.className = 'jmt-toast';
-  toast.innerHTML = '<span class="toast-icon">🎵</span>广告语将在本轮播放后结束，仅音乐播放';
+  toast.innerHTML = `
+    <span class="toast-icon">🎵</span>
+    <div class="toast-message">广告语将在本轮播放后结束，仅音乐播放</div>
+    <button class="toast-confirm-btn">确 定</button>
+  `;
   document.body.appendChild(toast);
+
+  // 确认按钮事件
+  const confirmBtn = toast.querySelector('.toast-confirm-btn');
+  confirmBtn.addEventListener('click', () => {
+    toast.classList.remove('show');
+    overlay.classList.remove('show');
+  });
 
   // 显示 Toast 的函数
   const showToast = () => {
+    overlay.classList.add('show');
     toast.classList.add('show');
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 3000);
   };
 
   // 监听"仅音乐模式"按钮点击
