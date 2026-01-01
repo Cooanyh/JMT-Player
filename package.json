@@ -28,7 +28,7 @@
     },
     "publish": {
       "provider": "generic",
-      "url": "https://gitee.com/coren01/JMT-Player/releases/download/v${version}"
+      "url": "https://gitee.com/coren01/JMT-Player/releases/download/latest"
     },
     "win": {
       "target": [
