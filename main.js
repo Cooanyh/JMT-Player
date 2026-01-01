@@ -551,18 +551,51 @@ function initAutoUpdater() {
     }
   });
 
-  // 下载完成
+  // 下载完成 - 自动安装
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('更新下载完成');
+    console.log('更新下载完成，准备自动安装');
     updateDownloaded = true;
-    // 清除待更新版本标记
+
+    // 存储已下载版本信息，用于安装失败后重试
+    store.set('pendingInstallVersion', info.version);
     store.set('pendingUpdateVersion', null);
+
     if (mainWindow) {
       mainWindow.setProgressBar(-1);
       mainWindow.webContents.send('update-downloaded', {
         version: info.version
       });
     }
+
+    // 延迟2秒后自动安装（给用户看到提示的时间）
+    setTimeout(() => {
+      try {
+        console.log('开始自动安装更新...');
+        isQuitting = true;
+        autoUpdater.quitAndInstall(false, true);
+      } catch (err) {
+        console.error('自动安装失败:', err.message);
+        // 安装失败，记录状态
+        store.set('installFailed', true);
+        isQuitting = false;
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-install-failed', {
+            version: info.version,
+            error: err.message
+          });
+
+          // 显示安装失败弹窗
+          dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            title: '安装失败',
+            message: '更新安装失败',
+            detail: `v${info.version} 安装遇到问题，将在下次启动时重试。\n\n错误: ${err.message}`,
+            buttons: ['确定']
+          });
+        }
+      }
+    }, 2000);
   });
 
   // 更新错误
@@ -578,6 +611,35 @@ function initAutoUpdater() {
   setTimeout(() => {
     checkForUpdates(true);
   }, 5000);
+
+  // 启动时检查是否有待安装版本（上次安装失败）
+  const pendingInstall = store.get('pendingInstallVersion');
+  const installFailed = store.get('installFailed');
+
+  if (pendingInstall && installFailed) {
+    console.log('检测到上次安装失败，尝试重新安装:', pendingInstall);
+    store.set('installFailed', false);
+
+    setTimeout(() => {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '继续更新',
+        message: '检测到未完成的更新',
+        detail: `v${pendingInstall} 上次安装未成功，是否立即重试？`,
+        buttons: ['立即安装', '稍后']
+      }).then(result => {
+        if (result.response === 0) {
+          try {
+            isQuitting = true;
+            autoUpdater.quitAndInstall(false, true);
+          } catch (err) {
+            console.error('重试安装失败:', err.message);
+            store.set('installFailed', true);
+          }
+        }
+      });
+    }, 3000);
+  }
 
   // 启动时检查是否有待更新版本，如果有则显示弹窗
   const pendingVersion = store.get('pendingUpdateVersion');
@@ -770,6 +832,14 @@ function showUpdateDialog(version) {
     if (result.response === 0) {
       // 用户点击"立即更新"
       console.log('用户选择立即更新');
+
+      // 打开设置面板并高亮更新区域
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('open-settings-update');
+      }
+
       // 触发下载更新
       autoUpdater.downloadUpdate().then(() => {
         console.log('开始下载更新');

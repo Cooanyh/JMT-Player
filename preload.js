@@ -761,6 +761,38 @@ function initSettings() {
       loadSettingsToUI();
     }
   });
+
+  // 打开设置并高亮更新区域
+  ipcRenderer.on('open-settings-update', () => {
+    const panel = document.getElementById('jmt-settings-panel');
+    if (panel) {
+      panel.classList.add('show');
+      loadSettingsToUI();
+
+      // 高亮更新区域
+      setTimeout(() => {
+        const updateSection = panel.querySelector('.jmt-update-section');
+        if (updateSection) {
+          // 添加高亮动画样式
+          updateSection.style.transition = 'all 0.3s ease';
+          updateSection.style.background = 'linear-gradient(135deg, rgba(0, 180, 219, 0.15) 0%, rgba(0, 131, 176, 0.15) 100%)';
+          updateSection.style.borderRadius = '12px';
+          updateSection.style.padding = '15px';
+          updateSection.style.margin = '-15px';
+          updateSection.style.boxShadow = '0 0 20px rgba(0, 180, 219, 0.3)';
+
+          // 滚动到更新区域
+          updateSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // 3秒后移除高亮
+          setTimeout(() => {
+            updateSection.style.background = '';
+            updateSection.style.boxShadow = '';
+          }, 5000);
+        }
+      }, 300);
+    }
+  });
 }
 
 // 初始化 Blob 下载拦截
