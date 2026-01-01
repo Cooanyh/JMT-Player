@@ -11,15 +11,17 @@
 1. ✅ **修复自动播放功能**
    - 修正播放按钮选择器为 `#play-toggle-button-desktop`
    - 使用 FontAwesome 图标类判断播放状态
-   - 支持多种按钮选择器回退机制
+   - **增强**: 添加自动播放重试机制（最多5次，间隔2秒）
 2. ✅ **"仅音乐模式"弹窗提示**
-   - 用户点击"仅音乐模式"后显示 Toast 提示
+   - 用户点击"仅音乐模式"后显示弹窗提示
    - 提示内容: "广告语将在本轮播放后结束，仅音乐播放"
+   - 需用户点击"确定"按钮才关闭
+   - **UI**: 使用青蓝色渐变主题 (#00b4db → #0083b0)
 
 ### 技术实现
-- `initPlaybackControl()` 更新按钮选择器
-- 新增 `initMusicOnlyModeNotification()` 函数
-- 弹窗动画使用 CSS 过渡和 cubic-bezier
+- `initPlaybackControl()` 自动播放带重试和验证机制
+- `initMusicOnlyModeNotification()` 弹窗带遮罩和确认按钮
+- 弹窗动画使用 CSS cubic-bezier 过渡
 
 ---
 
