@@ -562,23 +562,48 @@ function initPlaybackControl() {
   // 定期检查播放状态
   setInterval(checkPlayState, 1000);
 
-  // 自动播放 - 确保点击正确的按钮
+  // 自动播放 - 带重试机制确保成功
   ipcRenderer.on('auto-play', () => {
-    const btn = getPlayButton();
-    if (btn) {
-      // 检查当前是否已经是暂停状态（显示 play 图标）
-      const icon = btn.querySelector('i');
-      const needsClick = icon ? icon.classList.contains('fa-play') : true;
+    let retryCount = 0;
+    const maxRetries = 5;
 
-      if (needsClick) {
-        btn.click();
-        console.log('自动播放已触发 - 点击按钮:', btn.id || btn.className);
+    const tryAutoPlay = () => {
+      const btn = getPlayButton();
+      console.log(`自动播放尝试 ${retryCount + 1}/${maxRetries}，按钮:`, btn ? (btn.id || btn.className) : '未找到');
+
+      if (btn) {
+        const icon = btn.querySelector('i');
+        const needsClick = icon ? icon.classList.contains('fa-play') : true;
+
+        if (needsClick) {
+          // 模拟真实点击
+          btn.click();
+          console.log('自动播放 - 点击播放按钮');
+
+          // 验证点击是否成功
+          setTimeout(() => {
+            const newIcon = btn.querySelector('i');
+            if (newIcon && newIcon.classList.contains('fa-pause')) {
+              console.log('自动播放成功 - 已开始播放');
+            } else if (retryCount < maxRetries - 1) {
+              retryCount++;
+              console.log('自动播放未生效，重试...');
+              setTimeout(tryAutoPlay, 2000);
+            }
+          }, 500);
+        } else {
+          console.log('自动播放 - 已经在播放中');
+        }
+      } else if (retryCount < maxRetries - 1) {
+        retryCount++;
+        console.log('未找到播放按钮，2秒后重试...');
+        setTimeout(tryAutoPlay, 2000);
       } else {
-        console.log('自动播放已触发 - 已经在播放中');
+        console.log('自动播放失败 - 超过最大重试次数');
       }
-    } else {
-      console.log('自动播放失败 - 未找到播放按钮');
-    }
+    };
+
+    tryAutoPlay();
   });
 
   // 切换播放
@@ -604,11 +629,11 @@ function initMusicOnlyModeNotification() {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%) scale(0.8);
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
       color: white;
       padding: 25px 35px;
       border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
+      box-shadow: 0 20px 60px rgba(0, 131, 176, 0.4);
       z-index: 200000;
       font-size: 16px;
       font-weight: 500;
@@ -634,7 +659,7 @@ function initMusicOnlyModeNotification() {
     }
     .jmt-toast .toast-confirm-btn {
       background: white;
-      color: #667eea;
+      color: #0083b0;
       border: none;
       padding: 10px 40px;
       border-radius: 25px;
