@@ -1,6 +1,6 @@
 {
   "name": "jmt-player",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "济民堂广告播放控制桌面客户端",
   "main": "main.js",
   "scripts": {
@@ -12,7 +12,7 @@
   "author": "Coren",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^28.1.0",
+    "electron": "22.3.27",
     "electron-builder": "^24.9.1",
     "sharp": "^0.33.0"
   },

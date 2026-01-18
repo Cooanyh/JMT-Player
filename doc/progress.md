@@ -2,8 +2,26 @@
 
 ## 项目信息
 - **项目名称**: 济民堂播放器 (JMT Player)
-- **当前版本**: 1.6.2
+- **当前版本**: 1.7.0
 - **仓库**: https://github.com/Cooanyh/JMT-Player
+
+## v1.7.0 更新 (2026-01-18)
+
+### 更新内容
+1. ✅ **Windows 7 兼容性支持**
+   - 降级 Electron 从 28.1.0 到 22.3.27
+   - 解决 `DiscardVirtualMemory` API 缺失导致无法启动的问题
+   - 确保后台保活、自动播放、托盘功能正常工作
+
+### 技术实现
+- Electron 22.3.27 是支持 Windows 7 的最后一个版本
+- 后台保活功能使用 `powerSaveBlocker` 和 `SetThreadExecutionState` API
+- 所有依赖项（electron-store、electron-updater）保持兼容
+
+### 注意事项
+> ⚠️ Electron 22 的安全更新已于 2023 年 10 月停止。建议安全敏感环境升级到 Windows 10+。
+
+---
 
 ## v1.6.2 更新 (2026-01-01)
 
