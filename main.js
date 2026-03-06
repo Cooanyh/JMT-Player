@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, session, dialog, powerSaveBlocker } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { exec } = require('child_process');
@@ -208,6 +208,7 @@ function updateTrayMenu() {
       label: isPlaying ? '⏸ 暂停' : '▶ 播放',
       click: () => {
         if (mainWindow) {
+          mainWindow.webContents.send('toggle-play-guard'); // 通知 preload 这是用户操作
           mainWindow.webContents.send('toggle-play');
         }
       }
@@ -747,16 +748,32 @@ function initHeartbeat() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('heartbeat-ping');
 
-      // 检查是否超过60秒没有响应
-      if (Date.now() - lastPongTime > 60000) {
-        console.warn('渲染进程无响应，尝试重载页面');
+      // 检查是否超过120秒没有响应（从60秒增加到120秒，减少误判）
+      if (Date.now() - lastPongTime > 120000) {
+        console.warn('渲染进程超过120秒无响应，尝试重载页面');
         lastPongTime = Date.now(); // 重置，避免连续重载
         mainWindow.reload();
       }
     }
   }, 30000);
 
-  console.log('心跳检测已启动');
+  // 音频保活 - 每10分钟确保音频不被系统静音，并刷新电源保持锁
+  setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // 确保音频不被系统静音
+      mainWindow.webContents.setAudioMuted(false);
+      console.log('音频保活检查 - 已确保音频未静音');
+    }
+
+    // 刷新电源保持锁
+    if (powerSaveBlockerId !== null && !powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+      console.warn('电源保持锁已失效，重新启用');
+      powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+      console.log('电源保持锁已重新启用, ID:', powerSaveBlockerId);
+    }
+  }, 10 * 60 * 1000); // 每10分钟
+
+  console.log('心跳检测已启动（增强版）');
 }
 
 // 阻止系统休眠（Windows 特定）

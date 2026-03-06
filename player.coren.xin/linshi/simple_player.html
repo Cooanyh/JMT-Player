@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>济民堂广告播放控制</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/introjs.min.css">
+  <link rel="icon" href="jmt.png" type="image/png">
+  <style>
+     :root {
+      --primary-color: #4a6fa5; 
+      --primary-dark: #3a5a8a;
+      --secondary-color: #6b8cae; 
+      --accent-color: #ff7e5f;   
+      --accent-dark: #e06d50;
+      --light-color: #f8f9fa;
+      --light-gray: #e9ecef;
+      --medium-gray: #ced4da;
+      --dark-color: #343a40;
+      --text-muted: #6c757d;
+      --white-color: #ffffff;
+      --border-radius: 8px;    
+      --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+      --box-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --transition: all 0.25s ease-in-out;
+      --primary-color-shadow-rgb: 74, 111, 165;
+      --select-arrow-color: '%236c757d';
+    }
+
+    body.dark-mode {
+      --primary-color: #5e8ac9;
+      --primary-dark: #e0e0e0;
+      --secondary-color: #7c9bc2;
+      --accent-color: #ff8a70;   
+      --accent-dark: #ff7e5f;
+      --light-color: #1e1e1e;
+      --light-gray: #2d2d2d;
+      --medium-gray: #454545;
+      --dark-color: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --white-color: #282828;
+      --box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+      --box-shadow-hover: 0 4px 12px rgba(255, 255, 255, 0.08);
+      --primary-color-shadow-rgb: 94, 138, 201;
+      --select-arrow-color: '%23a0a0a0';
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { overflow-x: hidden; height: 100%; }
+    body {
+      font-family: 'HarmonyOS Sans SC', 'Noto Sans SC', sans-serif;
+      color: var(--dark-color);
+      min-height: 100vh; 
+      padding: 0; 
+      line-height: 1.6;
+      background-color: var(--light-color);
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .page-header {
+      background-color: var(--white-color);
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--light-gray);
+      box-shadow: var(--box-shadow);
+      width: 100%;
+      margin-bottom: 2rem; 
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .page-header h1 {
+      grid-column: 2 / 3;
+      color: var(--primary-dark);
+      font-weight: 600;
+      font-size: 1.6rem;
+      margin: 0;
+      text-align: center;
+      transition: color 0.3s;
+    }
+    .page-header .header-buttons {
+      grid-column: 3 / 4;
+      justify-self: end;
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .theme-toggle-button, .ai-button, .tutorial-button {
+        background: transparent;
+        border: 1px solid var(--medium-gray);
+        color: var(--text-muted);
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: var(--transition);
+        line-height: 1;
+    }
+    .theme-toggle-button:hover, .ai-button:hover, .tutorial-button:hover {
+        background-color: var(--light-gray);
+        color: var(--dark-color);
+        border-color: var(--dark-color);
+    }
+    .theme-toggle-button i, .ai-button i, .tutorial-button i {
+        display: inline-block;
+        width: 1em;
+    }
+    .player-container {
+      display: grid;
+      grid-template-columns: 320px 1fr 360px;
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem 1.5rem;
+      box-sizing: border-box;
+      align-items: stretch; /* 优化：让所有列等高 */
+    }
+    .player-display {
+      background: var(--white-color);
+      border: 1px solid var(--light-gray);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .album-cover {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: calc(var(--border-radius) - 2px);
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(var(--primary-color-shadow-rgb),0.08), rgba(0,0,0,0.02));
+      border: 1px solid var(--light-gray);
+    }
+    .cover-image {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      filter: saturate(1.05);
+    }
+    .cover-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(transparent 40%, rgba(0,0,0,0.2));
+      opacity: 0; transition: opacity .25s ease;
+    }
+    .album-cover:hover .cover-overlay { opacity: 1; }
+    .cover-play-btn {
+      width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--primary-color); color: var(--white-color);
+      display: grid; place-items: center; font-size: 1.1rem; box-shadow: var(--box-shadow);
+      transition: transform .2s ease, background-color .3s ease;
+    }
+    .cover-play-btn:hover { transform: scale(1.05); background: var(--primary-dark); }
+    .track-info { display: flex; flex-direction: column; gap: .5rem; }
+    .track-title { font-size: 1.05rem; color: var(--primary-dark); transition: color 0.3s; }
+    .track-artist { color: var(--text-muted); font-size: .9rem; transition: color 0.3s; }
+    .progress-container { margin-top: 0.8rem; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; transition: color 0.3s;}
+    .progress-bar { width: 100%; height: 5px; background: var(--light-gray); border-radius: 2.5px; overflow: hidden; transition: background-color 0.3s; cursor: pointer; }
+    .progress { height: 100%; background: var(--primary-color); width: 0%; transition: width 0.3s ease, background-color 0.3s; pointer-events: none; }
+    .lyrics-display {
+      background: var(--light-color);
+      border: 1px dashed var(--light-gray);
+      border-radius: var(--border-radius);
+      padding: .75rem;
+      transition: background-color 0.3s, border-color 0.3s;
+      flex-grow: 1; /* 优化：让歌词区域填满剩余空间 */
+      display: flex;
+      flex-direction: column;
+      min-height: 50px; /* 优化：给一个最小高度 */
+    }
+    .lyrics-content { overflow: auto; }
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .control-section {
+      background-color: var(--white-color);
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      border: 1px solid var(--light-gray);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .control-section h2 {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: var(--primary-dark);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--light-gray);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: color 0.3s, border-color 0.3s;
+    }
+    .control-section h2 i {
+        color: var(--secondary-color);
+        transition: color 0.3s;
+    }
+    .volume-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .volume-item { background: var(--white-color); border: 1px solid var(--light-gray); border-radius: var(--border-radius); padding: 1rem; box-shadow: var(--box-shadow); transition: background-color 0.3s, border-color 0.3s; }
+    .playback-controls { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: .25rem; }
+    .control-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--medium-gray); background: var(--white-color); color: var(--primary-dark); cursor: pointer; box-shadow: var(--box-shadow); transition: var(--transition); }
+    .control-btn:hover { transform: translateY(-1px); background: var(--light-gray); }
+    .control-btn.primary { width: 52px; height: 52px; background: var(--primary-color); border-color: var(--primary-color); color: var(--white-color); }
+    .control-btn.primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+    .mode-controls { display: flex; justify-content: center; margin-top: .75rem; }
+    .mode-btn { padding: .55rem 1rem; border-radius: 999px; border: 1px solid var(--primary-color); background: transparent; color: var(--primary-color); cursor: pointer; transition: var(--transition); }
+    .mode-btn:hover { background: var(--primary-color); color: var(--white-color); }
+    .mode-btn.active, #music-only-button.active { background: var(--accent-color); border-color: var(--accent-color); color: var(--white-color); }
+    .status-section { 
+      flex-grow: 1; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      text-align: center; padding: 1rem; 
+      background-color: var(--white-color); 
+      border-radius: var(--border-radius);
+      font-weight: 500; color: var(--primary-dark);
+      border: 1px solid var(--light-gray);
+      box-shadow: var(--box-shadow);
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+    .status-text-main { font-weight: 600; font-size: 1.1rem; }
+    .status-tip { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem; transition: opacity 0.5s ease; }
+    .playlist-panel { display: flex; flex-direction: column; gap: 1rem; }
+    .playlist-section { background: var(--white-color); border: 1px solid var(--light-gray); border-radius: var(--border-radius); box-shadow: var(--box-shadow); transition: background-color 0.3s, border-color 0.3s; }
+    .playlist-section > h3 { display: flex; align-items: center; gap: .5rem; padding: .8rem 1rem; color: var(--primary-dark); border-bottom: 1px solid var(--light-gray); transition: color 0.3s, border-color 0.3s; }
+    .playlist-container { padding: .75rem 1rem; max-height: 320px; overflow: auto; }
+    .playlist-item { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: .75rem; padding: .6rem .5rem; border-radius: .5rem; transition: background-color .2s ease, box-shadow .2s ease; cursor: pointer; }
+    .playlist-item:hover { background: var(--light-gray); }
+    .playlist-item.active { outline: 2px solid rgba(var(--primary-color-shadow-rgb), 0.25); background: rgba(var(--primary-color-shadow-rgb), 0.06); }
+    .track-number { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--light-gray); color: var(--primary-dark); font-size: .85rem; transition: background-color 0.3s, color 0.3s; }
+    .track-details { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; overflow: hidden; }
+    .track-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-duration { color: var(--text-muted); font-size: .85rem; transition: color 0.3s; white-space: nowrap; }
+    .action-icon { background: transparent; border: 1px solid var(--medium-gray); color: var(--primary-dark); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; transition: var(--transition); }
+    .action-icon:hover { background: var(--light-gray); }
+    .action-icon:disabled { opacity: 0.7; cursor: not-allowed; }
+    .select-label { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; color: var(--primary-dark); transition: color 0.3s; }
+    .playlist-select { width: 100%; }
+    .ad-preview { display: flex; align-items: center; gap: .5rem; color: var(--text-muted); font-size: .9rem; margin-top: .5rem; transition: color 0.3s; }
+    label {
+      display: block; margin-bottom: 0.6rem; font-weight: 500; 
+      color: var(--primary-dark); font-size: 0.95rem; 
+      display: flex; align-items: center; gap: 0.5rem;
+      transition: color 0.3s;
+    }
+    label i { color: var(--secondary-color); font-size: 0.9em; transition: color 0.3s;} 
+    select {
+      width: 100%; padding: 0.75rem 1rem; 
+      border: 1px solid var(--medium-gray); 
+      border-radius: var(--border-radius);
+      font-family: inherit; font-size: 0.95rem;
+      background-color: var(--white-color); color: var(--dark-color);
+      margin-bottom: 0.8rem; transition: var(--transition);
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='var(--select-arrow-color)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); 
+      background-repeat: no-repeat; background-position: right 0.8rem center; background-size: 0.9rem;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s, background-image 0.3s;
+    }
+    select:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(var(--primary-color-shadow-rgb), 0.25); }
+    
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      background: var(--light-gray);
+      border-radius: 4px;
+      outline: none;
+      margin: 1rem 0;
+      transition: var(--transition);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      border: 3px solid var(--white-color);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+    body.dark-mode input[type="range"] {
+        background: var(--medium-gray);
+    }
+    body.dark-mode input[type="range"]::-webkit-slider-thumb {
+        background: var(--primary-color);
+        border-color: var(--light-gray);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    .volume-display { display: flex; justify-content: space-between; align-items: center; margin-top: -0.6rem; font-size: 0.85rem; color: var(--text-muted); transition: color 0.3s;}
+    .modal {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.55); 
+      display: flex; justify-content: center; align-items: center;
+      z-index: 1050; 
+      border: none; padding: 0; margin: 0;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    body.dark-mode .modal { background: rgba(0, 0, 0, 0.7); }
+    .modal[open] { opacity: 1; visibility: visible; }
+    #ai-bot-modal[open] { background: transparent; }
+    #ai-bot-modal .modal-content {
+      background: var(--white-color);
+      border-radius: var(--border-radius);
+      width: 80vw; 
+      height: 80vh; 
+      max-width: 1000px; 
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
+      border: 1px solid var(--medium-gray);
+      overflow: hidden; 
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    #ai-bot-modal .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.8rem 1.2rem; 
+      background-color: var(--light-gray);
+      border-bottom: 1px solid var(--medium-gray);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    #ai-bot-modal .modal-title { font-size: 1.1rem; font-weight: 500; color: var(--primary-dark); transition: color 0.3s;}
+    #ai-bot-modal .modal-close {
+      background: transparent; color: var(--text-muted);
+      border: none; font-size: 1.6rem; cursor: pointer;
+      padding: 0.4rem; line-height: 1;
+      transition: color 0.2s ease;
+    }
+    #ai-bot-modal .modal-close:hover { color: var(--accent-color); }
+    body.dark-mode #ai-bot-modal .modal-close:hover { color: var(--accent-dark); }
+    #ai-bot-modal .modal-body { flex-grow: 1; padding: 0; overflow: hidden; }
+    #ai-bot-modal .modal-body iframe { width: 100%; height: 100%; border: none; }
+    .custom-prompt-modal .custom-prompt-content { 
+      background: var(--white-color); padding: 1.8rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      max-width: 380px; width: 90%;
+      border: 1px solid var(--light-gray);
+      transition: background-color 0.3s, border-color 0.3s;
+      text-align: center; 
+    }
+    .custom-prompt-content p { margin-bottom: 1.5rem; font-size: 1.05rem; color: var(--dark-color); transition: color 0.3s;}
+    .custom-prompt-buttons { display: flex; justify-content: center; gap: 1rem; }
+    .custom-prompt-button {
+      padding: 0.7rem 1.3rem; border: none;
+      border-radius: var(--border-radius);
+      font-size: 0.95rem; font-weight: 500;
+      cursor: pointer; transition: var(--transition);
+    }
+    .custom-prompt-button.confirm { background: var(--primary-color); color: var(--white-color); transition: background-color 0.3s, color 0.3s; }
+    .custom-prompt-button.confirm:hover { background: var(--primary-dark); }
+    .custom-prompt-button.cancel { background: var(--secondary-color); color: var(--white-color); transition: background-color 0.3s, color 0.3s;}
+    .custom-prompt-button.cancel:hover { background: var(--dark-color); }
+    body.dark-mode .custom-prompt-button.cancel:hover { background: var(--light-gray); color: var(--dark-color); }
+    .page-footer { 
+      text-align: center; margin-top: auto; 
+      padding: 2rem 1rem; 
+      color: var(--text-muted); 
+      font-size: 0.9rem;
+      width: 100%; 
+      border-top: 1px solid var(--light-gray); 
+      background-color: var(--light-color); 
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+    .page-footer a { color: var(--primary-color); text-decoration: none; transition: var(--transition); font-weight: 500; }
+    .page-footer a:hover { color: var(--primary-dark); text-decoration: underline; }
+    
+    .mobile-core-player, .mobile-tabs, .mobile-tab-content { display: none; }
+
+    .playlist-container::-webkit-scrollbar { width: 8px; }
+    .playlist-container::-webkit-scrollbar-track { background: var(--light-gray); border-radius: 4px; }
+    .playlist-container::-webkit-scrollbar-thumb { background-color: var(--medium-gray); border-radius: 4px; border: 2px solid var(--light-gray); }
+    .playlist-container::-webkit-scrollbar-thumb:hover { background-color: var(--secondary-color); }
+    body.dark-mode .playlist-container::-webkit-scrollbar-track { background: #3a3a3a; }
+    body.dark-mode .playlist-container::-webkit-scrollbar-thumb { background-color: var(--medium-gray); border-color: #3a3a3a; }
+
+    @media (max-width: 768px) {
+      .player-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 0 1rem 1rem;
+        align-items: normal; /* 移动端恢复默认对齐 */
+      }
+      .mobile-core-player { display: block; }
+      .mobile-tabs { display: flex; }
+      .mobile-tab-content { display: block; }
+
+      .player-display, .control-panel, .playlist-panel {
+        width: 100%;
+      }
+      .mobile-core-player {
+        background-color: var(--white-color);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--box-shadow);
+        border: 1px solid var(--light-gray);
+      }
+      
+      /* --- 移动端封面和信息样式重构 --- */
+      .mobile-core-player .player-display { background: none; border: none; box-shadow: none; padding: 0; }
+      .mobile-core-player .album-cover { 
+        width: 100%; 
+        height: auto;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto 1rem; 
+        position: relative;
+        display: flex;
+        align-items: flex-end; /* 将内容对齐到底部 */
+        border-radius: var(--border-radius);
+      }
+      .mobile-core-player .album-cover .track-info {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1.5rem 1rem 1rem;
+        background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+        color: white;
+        z-index: 2;
+        gap: 0.25rem;
+      }
+      .mobile-core-player .album-cover .track-info .track-title,
+      .mobile-core-player .album-cover .track-info .track-artist {
+        color: white;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      }
+       .mobile-core-player .album-cover .track-info .track-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+      }
+      .mobile-core-player .album-cover .track-info .track-artist {
+        font-size: 0.95rem;
+        opacity: 0.9;
+      }
+      .mobile-core-player .album-cover .track-info .progress-info {
+        color: rgba(255,255,255,0.8);
+      }
+       .mobile-core-player .album-cover .track-info .progress-bar {
+        background: rgba(255,255,255,0.3);
+      }
+       .mobile-core-player .album-cover .track-info .progress {
+        background: var(--white-color);
+      }
+      /* --- 移动端样式重构结束 --- */
+
+       .mobile-core-player .lyrics-display { display: none; }
+      .mobile-core-player .playback-controls,
+      .mobile-core-player .mode-controls,
+      .mobile-core-player .status-section { background: none; border: none; box-shadow: none; padding: 0; }
+      .mobile-core-player .status-section { margin-top: 1rem; flex-grow: 0; } /* 移动端取消拉伸 */
+
+      .mobile-tabs {
+        justify-content: space-around;
+        background-color: var(--white-color);
+        border-radius: var(--border-radius);
+        padding: 0.5rem;
+        box-shadow: var(--box-shadow);
+        border: 1px solid var(--light-gray);
+      }
+      .mobile-tab-item {
+        flex-grow: 1;
+        text-align: center;
+        padding: 0.6rem 0.5rem;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 6px;
+        transition: var(--transition);
+        cursor: pointer;
+      }
+      .mobile-tab-item.active {
+        background-color: var(--primary-color);
+        color: var(--white-color);
+      }
+      .mobile-tab-content {
+        background-color: var(--white-color);
+        border-radius: var(--border-radius);
+        padding: 1.2rem;
+        box-shadow: var(--box-shadow);
+        border: 1px solid var(--light-gray);
+      }
+      .mobile-tab-panel { display: none; }
+      .mobile-tab-panel.active { display: block; }
+       .desktop-only { display: none !important; }
+
+      /* --- 移动端弹窗适配 --- */
+      .custom-prompt-modal {
+        padding: 1rem; /* 为弹窗内容提供安全边距 */
+      }
+    }
+    @media (max-width: 480px) {
+      .page-header { grid-template-columns: auto 1fr auto; padding: 0.8rem; margin-bottom: 1rem; }
+      .page-header h1 { font-size: 1.15rem; }
+      .theme-toggle-button, .ai-button, .tutorial-button { font-size: 0.9rem; padding: 0.4rem 0.6rem;}
+      .player-container { padding: 0; } /* 优化：容器无内边距 */
+      .mobile-core-player, .mobile-tabs, .mobile-tab-content {
+        width: 100%; /* 优化：占满宽度 */
+        border-radius: 0; /* 优化：无圆角，更具沉浸感 */
+        border-left: none;
+        border-right: none;
+      }
+      .mobile-core-player { padding: 1rem 1.5rem; } /* 调整内部边距 */
+      .mobile-tabs { padding: 0.5rem 1.5rem; }
+      .mobile-tab-content { padding: 1.2rem 1.5rem; }
+
+      .playback-controls { gap: 0.8rem; }
+      .control-btn { width: 40px; height: 40px; }
+      .control-btn.primary { width: 50px; height: 50px; }
+      .volume-item { padding: 0.8rem; }
+    }
+    
+    .introjs-tooltip {
+      font-family: 'HarmonyOS Sans SC', 'Noto Sans SC', sans-serif;
+      color: var(--dark-color);
+      background-color: var(--white-color);
+      border: 1px solid var(--light-gray);
+      box-shadow: var(--box-shadow-hover);
+      border-radius: var(--border-radius);
+    }
+    .introjs-button {
+      background-color: var(--primary-color);
+      color: var(--white-color);
+      border-radius: 5px;
+      text-shadow: none;
+      box-shadow: none;
+      border: none;
+      padding: 0.5rem 1rem;
+      transition: var(--transition);
+    }
+    .introjs-button:hover {
+      background-color: var(--primary-dark);
+    }
+    .introjs-skipbutton {
+      color: var(--text-muted);
+      font-size: 0.85em;
+      text-decoration: none;
+      padding: .3rem .6rem;
+      border-radius: 4px;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .introjs-skipbutton:hover {
+      color: var(--dark-color);
+      background-color: var(--light-gray);
+    }
+    .tutorial-skip-reminder {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: var(--dark-color);
+      color: var(--light-color);
+      padding: 0.8rem 1.5rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow-hover);
+      z-index: 9999;
+      font-size: 0.95rem;
+      opacity: 0;
+      transition: opacity 0.5s ease, bottom 0.5s ease;
+      pointer-events: none;
+    }
+    body.dark-mode .tutorial-skip-reminder {
+        background-color: var(--light-gray);
+        color: var(--dark-color);
+    }
+    .tutorial-skip-reminder.show {
+      opacity: 1;
+      bottom: 30px;
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>济民堂广告播放控制</h1>
+    <div class="header-buttons">
+      <button id="start-tutorial-btn" title="重新观看教程" class="tutorial-button">
+        <i class="fas fa-question-circle"></i>
+      </button>
+      <button id="openAiBotButton" title="AI使用助手" class="ai-button">
+        <i class="fas fa-robot"></i>
+      </button>
+      <button id="theme-toggle" title="切换主题模式" class="theme-toggle-button">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="player-container" id="player-container">
+    <!-- UI is built by JavaScript -->
+  </div>
+
+  <audio id="advertisement" preload="auto"><source id="ads-source" type="audio/mp3"></source></audio>
+  
+  <dialog id="ad-selection-modal" class="modal custom-prompt-modal">
+    <div class="custom-prompt-content">
+        <p>在开始播放前，请先选择一条广告语。</p>
+        <div id="modal-ad-select-container" style="margin-bottom: 1.5rem;"></div>
+        <div class="custom-prompt-buttons">
+            <button class="custom-prompt-button confirm" id="confirm-ad-selection">确认选择</button>
+        </div>
+    </div>
+  </dialog>
+
+  <dialog id="music-only-prompt-modal" class="modal custom-prompt-modal">
+    <div class="custom-prompt-content">
+      <p>开启"仅音乐模式"后，将只播放背景音乐，广告语将不会播放。</p>
+      <div class="custom-prompt-buttons">
+        <button class="custom-prompt-button confirm" id="confirm-music-only">确认只播放音乐</button>
+        <button class="custom-prompt-button cancel" id="cancel-music-only">需要广告语播放</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="ai-bot-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">AI使用助手</span>
+        <button class="modal-close" id="closeAiBotModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="ai-bot-iframe" src="about:blank" title="AI使用助手"></iframe>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/intro.min.js"></script>
+
+  <footer class="page-footer">
+    <div>
+      <a href="https://coren.xin/" target="_blank">© 2025 Coren 济民堂广告播放控制v3.0.0</a>
+    </div>
+  </footer>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    
+    function buildUI() {
+        const container = document.getElementById('player-container');
+        container.innerHTML = `
+            <div class="player-display desktop-only">
+              <div class="album-cover"><img id="album-cover-img" src="https://upyun.coren.xin/web/jmt.png" alt="专辑封面" class="cover-image" onerror="this.onerror=null;this.src='https://upyun.coren.xin/web/jmt.png';"><div class="cover-overlay"><button class="cover-play-btn" id="cover-play-btn"><i class="fas fa-play"></i></button></div></div>
+              <div class="track-info"><h3 class="track-title" id="track-title">当前播放</h3><p class="track-artist" id="track-artist">济民堂广告播放</p><div class="progress-container"><div class="progress-info"><span id="current-time">00:00</span><span id="duration">00:00</span></div><div class="progress-bar" id="progress-bar"><div class="progress" id="progress"></div></div></div></div>
+              <div class="lyrics-display"><div class="lyrics-content" id="lyrics-content"><p class="lyrics-line">-如有疑问请访问右上角🤖AI使用助手<br>-您随时可以点击右上角的 <i class="fas fa-question-circle"></i> 按钮重新观看使用教程。</p></div></div>
+            </div>
+            <div class="control-panel desktop-only">
+              <div class="control-section" id="volume-section-desktop">
+                <h2><i class="fas fa-sliders-h"></i> 音量控制</h2>
+                <div class="volume-controls">
+                  <div class="volume-item"><label for="bgm-volume-desktop"><i class="fas fa-volume-up"></i> 背景音乐</label><input type="range" id="bgm-volume-desktop" min="0" max="1" step="0.01" value="0.6"><div class="volume-display">音量: <span id="current-bgm-volume-desktop">60%</span></div></div>
+                  <div class="volume-item"><label for="ads-volume-desktop"><i class="fas fa-bullhorn"></i> 广告语</label><input type="range" id="ads-volume-desktop" min="0" max="1" step="0.01" value="0.8"><div class="volume-display">音量: <span id="current-ads-volume-desktop">80%</span></div></div>
+                </div>
+              </div>
+              <div class="control-section" id="playback-section-desktop" data-step="2" data-intro="点击这里可以开始或暂停播放背景音乐和广告。">
+                <h2><i class="fas fa-play-circle"></i> 播放控制</h2>
+                <div class="playback-controls">
+                  <button class="control-btn" id="prev-btn-desktop" title="上一曲"><i class="fas fa-step-backward"></i></button>
+                  <button class="control-btn primary" id="play-toggle-button-desktop" title="开始/暂停播放"><i class="fas fa-play"></i></button>
+                  <button class="control-btn" id="next-btn-desktop" title="下一曲"><i class="fas fa-step-forward"></i></button>
+                </div>
+                <div class="mode-controls"><button class="mode-btn" id="music-only-button-desktop" title="开启后只播放背景音乐，不播放广告语" data-step="4" data-intro="如果您只想听背景音乐，不想播放广告，可以点击开启此模式。"><i class="fas fa-music"></i> <span>仅音乐模式</span></button></div>
+              </div>
+              <div class="status-section" id="status-section-desktop"><span class="status-text-main" id="status-text-desktop">准备就绪</span><span class="status-tip" id="status-tip-desktop"></span></div>
+            </div>
+            <div class="playlist-panel desktop-only">
+              <div class="playlist-section" id="bgm-playlist-section-desktop"><h3><i class="fas fa-music"></i> 背景音乐</h3><div class="playlist-container" id="bgm-playlist-desktop"></div></div>
+              <div class="playlist-section" id="ads-playlist-section-desktop" data-step="3" data-intro="在这里选择您想要循环播放的广告语。首次播放前必须选择一个哦！">
+                <h3><i class="fas fa-bullhorn"></i> 广告语</h3>
+                <div class="playlist-container"><label for="ad-select-desktop" class="select-label"><i class="fas fa-list-ul"></i> 选择广告语</label><select id="ad-select-desktop" class="playlist-select"></select><div class="selected-ad-info"><div class="ad-preview"><i class="fas fa-volume-up"></i><span>当前选择的广告语将循环播放</span></div></div></div>
+              </div>
+            </div>
+
+            <!-- Mobile UI -->
+            <div class="mobile-core-player">
+                <div class="player-display" data-step-mobile="2" data-intro-mobile="这是播放核心区域，封面、歌名和进度条都在这里。">
+                    <div class="album-cover">
+                        <img id="album-cover-img-mobile" src="https://upyun.coren.xin/web/jmt.png" alt="专辑封面" class="cover-image" onerror="this.onerror=null;this.src='https://upyun.coren.xin/web/jmt.png';">
+                        <div class="cover-overlay"><button class="cover-play-btn" id="cover-play-btn-mobile"><i class="fas fa-play"></i></button></div>
+                        <div class="track-info">
+                            <h3 class="track-title" id="track-title-mobile">当前播放</h3>
+                            <p class="track-artist" id="track-artist-mobile">济民堂广告播放</p>
+                            <div class="progress-container">
+                                <div class="progress-info"><span id="current-time-mobile">00:00</span><span id="duration-mobile">00:00</span></div>
+                                <div class="progress-bar" id="progress-bar-mobile"><div class="progress" id="progress-mobile"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-section" id="playback-section-mobile" data-step-mobile="3" data-intro-mobile="在这里控制播放、暂停和切换歌曲。">
+                    <div class="playback-controls">
+                        <button class="control-btn" id="prev-btn-mobile" title="上一曲"><i class="fas fa-step-backward"></i></button>
+                        <button class="control-btn primary" id="play-toggle-button-mobile" title="开始/暂停播放"><i class="fas fa-play"></i></button>
+                        <button class="control-btn" id="next-btn-mobile" title="下一曲"><i class="fas fa-step-forward"></i></button>
+                    </div>
+                    <div class="mode-controls">
+                        <button class="mode-btn" id="music-only-button-mobile" title="开启后只播放背景音乐"><i class="fas fa-music"></i> <span>仅音乐模式</span></button>
+                    </div>
+                </div>
+                <div class="status-section" id="status-section-mobile"><span class="status-text-main" id="status-text-mobile">准备就绪</span><span class="status-tip" id="status-tip-mobile"></span></div>
+            </div>
+            <div class="mobile-tabs" data-step-mobile="4" data-intro-mobile="点击标签可以在“广告”、“歌单”和“音量”设置之间切换。">
+                <button class="mobile-tab-item active" data-tab="ads">广告</button>
+                <button class="mobile-tab-item" data-tab="bgm">歌单</button>
+                <button class="mobile-tab-item" data-tab="volume">音量</button>
+            </div>
+            <div class="mobile-tab-content">
+                <div class="mobile-tab-panel active" data-tab-panel="ads" data-step-mobile="5" data-intro-mobile="开始播放前，请务必在这里选择一条广告语！">
+                    <label for="ad-select-mobile" class="select-label"><i class="fas fa-list-ul"></i> 选择广告语</label>
+                    <select id="ad-select-mobile" class="playlist-select"></select>
+                </div>
+                <div class="mobile-tab-panel" data-tab-panel="bgm">
+                    <div class="playlist-container" id="bgm-playlist-mobile"></div>
+                </div>
+                <div class="mobile-tab-panel" data-tab-panel="volume">
+                    <div class="volume-item"><label for="bgm-volume-mobile"><i class="fas fa-volume-up"></i> 背景音乐</label><input type="range" id="bgm-volume-mobile" min="0" max="1" step="0.01" value="0.6"><div class="volume-display">音量: <span id="current-bgm-volume-mobile">60%</span></div></div>
+                    <div class="volume-item"><label for="ads-volume-mobile"><i class="fas fa-bullhorn"></i> 广告语</label><input type="range" id="ads-volume-mobile" min="0" max="1" step="0.01" value="0.8"><div class="volume-display">音量: <span id="current-ads-volume-mobile">80%</span></div></div>
+                </div>
+            </div>
+        `;
+    }
+    buildUI();
+    const dom = {
+        bgmVol: [document.getElementById('bgm-volume-desktop'), document.getElementById('bgm-volume-mobile')],
+        adsVol: [document.getElementById('ads-volume-desktop'), document.getElementById('ads-volume-mobile')],
+        curBgm: [document.getElementById('current-bgm-volume-desktop'), document.getElementById('current-bgm-volume-mobile')],
+        curAds: [document.getElementById('current-ads-volume-desktop'), document.getElementById('current-ads-volume-mobile')],
+        playToggleBtn: [document.getElementById('play-toggle-button-desktop'), document.getElementById('play-toggle-button-mobile')],
+        coverPlayBtn: [document.getElementById('cover-play-btn'), document.getElementById('cover-play-btn-mobile')],
+        musicOnlyBtn: [document.getElementById('music-only-button-desktop'), document.getElementById('music-only-button-mobile')],
+        statusTxt: [document.getElementById('status-text-desktop'), document.getElementById('status-text-mobile')],
+        statusTip: [document.getElementById('status-tip-desktop'), document.getElementById('status-tip-mobile')],
+        adSel: [document.getElementById('ad-select-desktop'), document.getElementById('ad-select-mobile')],
+        prevBtn: [document.getElementById('prev-btn-desktop'), document.getElementById('prev-btn-mobile')],
+        nextBtn: [document.getElementById('next-btn-desktop'), document.getElementById('next-btn-mobile')],
+        bgmPlaylist: [document.getElementById('bgm-playlist-desktop'), document.getElementById('bgm-playlist-mobile')],
+        albumCoverImg: [document.getElementById('album-cover-img'), document.getElementById('album-cover-img-mobile')],
+        trackTitle: [document.getElementById('track-title'), document.getElementById('track-title-mobile')],
+        trackArtist: [document.getElementById('track-artist'), document.getElementById('track-artist-mobile')],
+        currentTime: [document.getElementById('current-time'), document.getElementById('current-time-mobile')],
+        duration: [document.getElementById('duration'), document.getElementById('duration-mobile')],
+        progress: [document.getElementById('progress'), document.getElementById('progress-mobile')],
+        progressBar: [document.getElementById('progress-bar'), document.getElementById('progress-bar-mobile')],
+        adsAudio: document.getElementById('advertisement'),
+        musicOnlyPromptModal: document.getElementById('music-only-prompt-modal'),
+        confirmMusicOnlyBtn: document.getElementById('confirm-music-only'),
+        cancelMusicOnlyBtn: document.getElementById('cancel-music-only'),
+        openAiBotBtn: document.getElementById('openAiBotButton'),
+        aiBotModal: document.getElementById('ai-bot-modal'),
+        aiBotIframe: document.getElementById('ai-bot-iframe'),
+        closeAiBotModalBtn: document.getElementById('closeAiBotModal'),
+        themeToggle: document.getElementById('theme-toggle'),
+        body: document.body,
+        adSelectionModal: document.getElementById('ad-selection-modal'),
+        confirmAdSelectionBtn: document.getElementById('confirm-ad-selection'),
+        modalAdSelectContainer: document.getElementById('modal-ad-select-container'),
+        startTutorialBtn: document.getElementById('start-tutorial-btn')
+    };
+    let isPlaying = false, isMusicOnlyMode = false, hasSeenMusicOnlyPrompt = localStorage.getItem('hasSeenMusicOnlyPrompt') === 'true', myhkaudio = null, isSeeking = false, playlistExtractTimeout, initialPlaylistSelected = false, tipInterval;
+    const playIcon = '<i class="fas fa-play"></i>', pauseIcon = '<i class="fas fa-pause"></i>', sunIcon = '<i class="fas fa-sun"></i>', moonIcon = '<i class="fas fa-moon"></i>';
+    const tips = ["试试点击封面上的播放按钮。", "广告语和背景音乐的音量可以分开调节。", "右上角的按钮可以切换深色或浅色模式。", "歌单列表可以滚动查看更多歌曲。", "遇到问题可以随时呼叫AI助手。", "您随时可以点击右上角的?按钮重新观看使用教程。", "必须要先选择广告才能够开始播放。", "您可以通过按钮“仅音乐模式”来只播放音乐。", "再次点击“仅音乐模式”以重新开始播放广告！", "请记住本站网址:player.coren.xin", "虚位以待。", "背景音乐歌单将在开始播放后加载。"];
+    
+    function updateTips() {
+        const randomTip = tips[Math.floor(Math.random() * tips.length)];
+        dom.statusTip.forEach(el => {
+            el.style.opacity = 0;
+            setTimeout(() => {
+                el.textContent = randomTip;
+                el.style.opacity = 1;
+            }, 500);
+        });
+    }
+    
+    function showSkipTutorialReminder() { if (document.querySelector('.tutorial-skip-reminder')) return; const e = document.createElement('div'); e.className = 'tutorial-skip-reminder'; e.innerHTML = '教程已跳过。您随时可以点击右上角的 <i class="fas fa-question-circle"></i> 按钮重新观看。'; document.body.appendChild(e); setTimeout(() => { e.classList.add('show'); }, 10); setTimeout(() => { e.classList.remove('show'); setTimeout(() => { document.body.contains(e) && document.body.removeChild(e); }, 500); }, 4000); }
+    
+    const tutorialOptions = { showStepNumbers: false, showBullets: false, doneLabel: '完成', nextLabel: '下一步 &rarr;', prevLabel: '&larr; 上一步', skipLabel: '跳过' };
+    
+    function startTutorial() {
+        introJs().setOptions({ ...tutorialOptions, steps: [
+            { title: '欢迎!', intro: '欢迎使用广告播放控制系统。这是一个简单的向导，将帮助您快速上手。' }, 
+            { element: document.querySelector('[data-step="2"]'), title: '播放控制', intro: '点击这里可以开始或暂停播放背景音乐和广告。', position: 'top' }, 
+            { element: document.querySelector('[data-step="3"]'), title: '选择广告', intro: '在这里选择您想要循环播放的广告语。首次播放前必须选择一个哦！', position: 'left' }, 
+            { element: document.querySelector('[data-step="4"]'), title: '仅音乐模式', intro: '如果您只想听背景音乐，不想播放广告，可以点击开启此模式。', position: 'top' }, 
+            { element: dom.startTutorialBtn, title: '重看教程', intro: '如果忘记了操作，可以随时点击这里重新观看本教程。', position: 'bottom' }, 
+            { title: '教程结束', intro: '您现在可以开始使用了！如有疑问，可以点击右上角的机器人图标获取帮助。' }]
+        }).oncomplete(() => localStorage.setItem('hasSeenTutorial', 'true'))
+          .onexit(() => { localStorage.setItem('hasSeenTutorial', 'true'); showSkipTutorialReminder(); }).start();
+    }
+
+    function startTutorialMobile() {
+        introJs().setOptions({ ...tutorialOptions, steps: [
+            { title: '欢迎!', intro: '欢迎使用移动版播放控制器。' },
+            { element: document.querySelector('[data-step-mobile="2"]'), title: '播放核心', intro: '这是播放核心区域，封面、歌名和进度条都在这里。', position: 'bottom' },
+            { element: document.querySelector('[data-step-mobile="3"]'), title: '播放控制', intro: '在这里控制播放、暂停和切换歌曲。', position: 'bottom' },
+            { element: document.querySelector('[data-step-mobile="4"]'), title: '功能切换', intro: '点击标签可以在“广告”、“歌单”和“音量”设置之间切换。', position: 'top' },
+            { element: document.querySelector('[data-step-mobile="5"]'), title: '选择广告', intro: '开始播放前，请务必在这里选择一条广告语！', position: 'top' },
+            { title: '教程结束', intro: '您现在可以开始使用了！' }
+        ]}).oncomplete(() => localStorage.setItem('hasSeenTutorial', 'true'))
+           .onexit(() => { localStorage.setItem('hasSeenTutorial', 'true'); showSkipTutorialReminder(); }).start();
+    }
+
+    function showAdSelectionModal() { dom.modalAdSelectContainer.appendChild(dom.adSel[1]); dom.adSelectionModal.showModal(); }
+    
+    async function handlePlayback() {
+        const currentAdSelect = window.innerWidth <= 768 ? dom.adSel[1] : dom.adSel[0];
+        if (!isMusicOnlyMode && (!currentAdSelect.value || currentAdSelect.options.length === 0 || currentAdSelect.value === "")) { showAdSelectionModal(); return; }
+        try {
+            if (!myhkaudio) myhkaudio = window.myhk?.audio || document.querySelector('.myhkplayer audio, #myhkaudio, audio.myhkaudio');
+            if (window.myhk?.play) await window.myhk.play(); else if (myhkaudio) await myhkaudio.play();
+            if (!myhkaudio) throw new Error("无法找到背景音乐播放器。");
+            if (!isMusicOnlyMode && currentAdSelect?.value) { document.getElementById('ads-source').src = currentAdSelect.value; dom.adsAudio.load(); await dom.adsAudio.play(); }
+            setUItoPlaying(); updateMediaMetadata();
+        } catch (error) { console.error('播放失败:', error); dom.statusTxt.forEach(el => el.textContent = '播放失败: ' + error.message); setUItoPaused(); }
+    }
+
+    function setUItoPlaying() { dom.playToggleBtn.forEach(e => e.innerHTML = pauseIcon); dom.coverPlayBtn.forEach(e => e.innerHTML = pauseIcon); dom.statusTxt.forEach(e => e.textContent = isMusicOnlyMode ? '播放中 (仅音乐)' : '播放中'); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; isPlaying = true; if (!tipInterval) { updateTips(); tipInterval = setInterval(updateTips, 30000); } updateMediaPositionState(); }
+    function setUItoPaused() { dom.playToggleBtn.forEach(e => e.innerHTML = playIcon); dom.coverPlayBtn.forEach(e => e.innerHTML = playIcon); dom.statusTxt.forEach(e => e.textContent = '已暂停'); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; isPlaying = false; clearInterval(tipInterval); tipInterval = null; dom.statusTip.forEach(el => el.textContent = ''); updateMediaPositionState(); }
+    function handlePause() { try { if (window.myhk?.pause) window.myhk.pause(); else if (myhkaudio) myhkaudio.pause(); } catch (e) { console.warn('暂停BGM失败:', e); } if (dom.adsAudio && !dom.adsAudio.paused) dom.adsAudio.pause(); setUItoPaused(); }
+    
+    function updateProgress() { if (!myhkaudio || typeof myhkaudio.currentTime !== 'number' || typeof myhkaudio.duration !== 'number' || isNaN(myhkaudio.duration) || isSeeking) return; const t = myhkaudio.currentTime, e = myhkaudio.duration; dom.currentTime.forEach(el => el.textContent = formatTime(t)); dom.duration.forEach(el => el.textContent = formatTime(e)); dom.progress.forEach(el => el.style.width = e > 0 ? `${(t / e) * 100}%` : '0%'); updateMediaPositionState(); }
+    function handleSeek(event, index) { if (!myhkaudio || isNaN(myhkaudio.duration)) return; const t = event.clientX || (event.touches && event.touches[0].clientX); if (typeof t !== 'number') return; let e = (t - dom.progressBar[index].getBoundingClientRect().left) / dom.progressBar[index].getBoundingClientRect().width; e = Math.max(0, Math.min(1, e)); myhkaudio.currentTime = myhkaudio.duration * e; updateProgress(); }
+    
+    function renderSongList(songListElement) { dom.bgmPlaylist.forEach(container => { if (!container || !songListElement) return; try { container.innerHTML = ''; const t = songListElement.querySelectorAll('li'); if (t.length === 0) return; t.forEach((e, o) => { const n = e.textContent.trim().replace(/[\uE000-\uF8FF]/g, '').replace(/^[^\u4e00-\u9fa5a-zA-Z0-9]*/, '').trim(); if (!n || n.length < 2) return; const i = e.classList.contains('myhknow'), [s, l] = n.includes(' - ') ? n.split(' - ').map(t => t.trim()) : [n, '未知艺人'], a = document.createElement('div'); a.className = `playlist-item${i ? ' active' : ''}`; a.innerHTML = `<div class="track-number">${o + 1}</div><div class="track-details"><span class="track-name" title="${s}">${s}</span><span class="track-duration">${l}</span></div><button class="action-icon" title="${i ? '正在播放' : '播放'}" ${i ? 'disabled' : ''}><i class="fas fa-${i ? 'volume-up' : 'play'}"></i></button>`; a.addEventListener('click', () => { if (!i) e.click(); }); container.appendChild(a); }); } catch (t) { console.error('渲染歌曲列表时出错:', t); } }); }
+    function extractMyhkPlayerInfo() { const myhkPlayer = document.querySelector('.myhkplayer'); if (!myhkPlayer) return; let infoChanged = false; try { const coverImg = myhkPlayer.querySelector('.myhkcover img, .myhkblur img'), defaultCover = 'https://upyun.coren.xin/web/jmt.png'; dom.albumCoverImg.forEach(el => { const newSrc = coverImg?.src || defaultCover; if (el.src !== newSrc) { el.src = newSrc; infoChanged = true; } }); const songTitle = myhkPlayer.querySelector('.myhksong span, .myhkname span')?.textContent.trim(); dom.trackTitle.forEach(el => { if (songTitle && el.textContent !== songTitle) { el.textContent = songTitle; infoChanged = true; } }); const artist = myhkPlayer.querySelector('.myhkartist span')?.textContent.trim(); dom.trackArtist.forEach(el => { if (artist && el.textContent !== artist) { el.textContent = artist; infoChanged = true; } }); if (infoChanged) updateMediaMetadata(); } catch (error) { console.error('提取myhk播放器信息时出错:', error); } }
+    function extractMyhkPlaylist() { const targetPlaylist = document.querySelector('.myhklist[data-album="0"] ul'); if (targetPlaylist && targetPlaylist.querySelectorAll('li').length > 0) { renderSongList(targetPlaylist); } else { dom.bgmPlaylist.forEach(el => { if (el && el.children.length === 0) el.innerHTML = `<p style="padding: 1rem; color: var(--text-muted); text-align: center;">开始播放后自动加载信息...<br>请点击播放按钮。</p>`; }); } }
+    function syncPlayerState() { if (!myhkaudio) { myhkaudio = window.myhk?.audio || document.querySelector('.myhkplayer audio, #myhkaudio, audio.myhkaudio'); if (!myhkaudio) return; } if (myhkaudio.paused && isPlaying) setUItoPaused(); else if (!myhkaudio.paused && !isPlaying) setUItoPlaying(); if (isPlaying) { updateProgress(); extractMyhkPlayerInfo(); } }
+    function autoSelectInitialPlaylist() { let t = 0; const e = setInterval(() => { if (initialPlaylistSelected) { clearInterval(e); return; } let o = null; for (const e of document.querySelectorAll('.myhk_list ul li, .album-list ul li')) if (e.textContent.includes('AAA广告背景音乐')) { o = e; break; } if (o) { o.click(); initialPlaylistSelected = !0; clearInterval(e); } if (++t > 40) { console.warn('自动选择初始歌单超时'); clearInterval(e); } }, 500); }
+    function formatTime(t) { const e = Math.floor(t / 60); return `${e}:${Math.floor(t % 60).toString().padStart(2, '0')}`; }
+    function applyTheme(t) { if (t === 'dark') { dom.body.classList.add('dark-mode'); if (dom.themeToggle) dom.themeToggle.innerHTML = sunIcon; localStorage.setItem('theme', 'dark'); } else { dom.body.classList.remove('dark-mode'); if (dom.themeToggle) dom.themeToggle.innerHTML = moonIcon; localStorage.setItem('theme', 'light'); } }
+    async function populateAdSelect() { try { const t = await fetch('api/get-ad-list?t=' + new Date().getTime()); if (!t.ok) throw new Error(`HTTP error! status: ${t.status}`); const e = await t.json(); dom.adSel.forEach(sel => { sel.innerHTML = ''; if (e && e.length > 0) { e.forEach(t => { const e = new Option(t.name, `static/audio/ads/${t.file}`); sel.add(e); }); } else { sel.add(new Option('无可用广告语', '')); } }); } catch (t) { console.error('填充广告列表时出错:', t); dom.adSel.forEach(sel => sel.innerHTML = '<option value="">加载失败</option>'); } }
+    function setupPlaylistObserver() { const t = document.body, e = new MutationObserver(() => { clearTimeout(playlistExtractTimeout); playlistExtractTimeout = setTimeout(extractMyhkPlaylist, 250); }); e.observe(t, { childList: !0, subtree: !0 }); }
+    
+    // --- 增强的 Media Session (SMTC) 功能 ---
+    function updateMediaMetadata() {
+        if (!('mediaSession' in navigator) || !myhkaudio) return;
+
+        const title = dom.trackTitle[0].textContent || '未知歌曲';
+        const artist = dom.trackArtist[0].textContent || '未知艺术家';
+        const album = '济民堂广告播放';
+        const artworkSrc = dom.albumCoverImg[0].src;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: title,
+            artist: artist,
+            album: album,
+            artwork: [
+                { src: artworkSrc, sizes: '96x96', type: 'image/png' },
+                { src: artworkSrc, sizes: '128x128', type: 'image/png' },
+                { src: artworkSrc, sizes: '192x192', type: 'image/png' },
+                { src: artworkSrc, sizes: '256x256', type: 'image/png' },
+                { src: artworkSrc, sizes: '384x384', type: 'image/png' },
+                { src: artworkSrc, sizes: '512x512', type: 'image/png' },
+            ]
+        });
+    }
+
+    function updateMediaPositionState() {
+        if ('mediaSession' in navigator && myhkaudio && !isNaN(myhkaudio.duration)) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: myhkaudio.duration || 0,
+                    playbackRate: myhkaudio.playbackRate,
+                    position: myhkaudio.currentTime || 0
+                });
+            } catch (error) {
+                console.warn("设置媒体位置状态失败:", error.message);
+            }
+        }
+    }
+
+    function setupMediaSession() {
+        if (!('mediaSession' in navigator)) {
+            console.log("此浏览器不支持 MediaSession API。");
+            return;
+        }
+
+        navigator.mediaSession.setActionHandler('play', async () => { if (!isPlaying) await handlePlayback(); });
+        navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) handlePause(); });
+        navigator.mediaSession.setActionHandler('previoustrack', () => { window.myhk?.prev ? window.myhk.prev() : document.querySelector('.myhkprev')?.click(); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { window.myhk?.next ? window.myhk.next() : document.querySelector('.myhknext')?.click(); });
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => { if (!myhkaudio) return; const skipTime = details.seekOffset || 10; myhkaudio.currentTime = Math.max(myhkaudio.currentTime - skipTime, 0); updateMediaPositionState(); });
+        navigator.mediaSession.setActionHandler('seekforward', (details) => { if (!myhkaudio) return; const skipTime = details.seekOffset || 10; myhkaudio.currentTime = Math.min(myhkaudio.currentTime + skipTime, myhkaudio.duration); updateMediaPositionState(); });
+        navigator.mediaSession.setActionHandler('seekto', (details) => { if (!myhkaudio) return; if (details.fastSeek && 'fastSeek' in myhkaudio) { myhkaudio.fastSeek(details.seekTime); } else { myhkaudio.currentTime = details.seekTime; } updateMediaPositionState(); });
+    }
+    // --- Media Session 功能结束 ---
+    
+    function initMobileTabs() { const tabs = document.querySelectorAll('.mobile-tab-item'), panels = document.querySelectorAll('.mobile-tab-panel'); tabs.forEach(tab => { tab.addEventListener('click', () => { const targetPanelId = tab.getAttribute('data-tab'); tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); panels.forEach(panel => { panel.getAttribute('data-tab-panel') === targetPanelId ? panel.classList.add('active') : panel.classList.remove('active'); }); }); }); }
+    
+    function initialize() {
+        const isMobile = window.innerWidth <= 768;
+        setupMediaSession();
+        dom.playToggleBtn.forEach(btn => btn.addEventListener('click', () => isPlaying ? handlePause() : handlePlayback()));
+        dom.coverPlayBtn.forEach(btn => btn.addEventListener('click', () => isPlaying ? handlePause() : handlePlayback()));
+        dom.prevBtn.forEach(btn => btn.addEventListener('click', () => window.myhk?.prev ? window.myhk.prev() : document.querySelector('.myhkprev')?.click()));
+        dom.nextBtn.forEach(btn => btn.addEventListener('click', () => window.myhk?.next ? window.myhk.next() : document.querySelector('.myhknext')?.click()));
+        dom.progressBar.forEach((bar, index) => { bar.addEventListener('mousedown', (e) => { isSeeking = true; handleSeek(e, index); }); bar.addEventListener('touchstart', (e) => { isSeeking = true; handleSeek(e, index); }, { passive: true }); });
+        window.addEventListener('mousemove', (e) => { if (isSeeking) handleSeek(e, isMobile ? 1 : 0); }); window.addEventListener('touchmove', (e) => { if (isSeeking) handleSeek(e, isMobile ? 1 : 0); }, { passive: true });
+        window.addEventListener('mouseup', () => { isSeeking = false; }); window.addEventListener('touchend', () => { isSeeking = false; });
+        dom.bgmVol.forEach(input => input.addEventListener('input', (e) => { const vol = parseFloat(e.target.value); dom.curBgm.forEach(el => el.textContent = `${Math.round(vol * 100)}%`); if (window.myhk?.volume) window.myhk.volume(vol); else if (myhkaudio) myhkaudio.volume = vol; }));
+        dom.adsVol.forEach(input => input.addEventListener('input', (e) => { const vol = parseFloat(e.target.value); dom.curAds.forEach(el => el.textContent = `${Math.round(vol * 100)}%`); if (dom.adsAudio) dom.adsAudio.volume = vol; }));
+        const adSelects = [dom.adSel[0], dom.adSel[1]]; adSelects.forEach((sel, index) => { sel.addEventListener('change', (e) => { const otherSel = adSelects[1 - index]; otherSel.value = e.target.value; localStorage.setItem('selected-ad', e.target.value); if (isPlaying && !isMusicOnlyMode && e.target.value) { dom.adsAudio.pause(); document.getElementById('ads-source').src = e.target.value; dom.adsAudio.load(); dom.adsAudio.play().catch(console.error); } }); });
+        dom.adsAudio.addEventListener('ended', () => { const currentAdSelect = window.innerWidth <= 768 ? dom.adSel[1] : dom.adSel[0]; if (isPlaying && !isMusicOnlyMode && currentAdSelect?.value) { dom.adsAudio.currentTime = 0; dom.adsAudio.play().catch(console.error); } });
+        dom.musicOnlyBtn.forEach(btn => btn.addEventListener('click', () => { if (!hasSeenMusicOnlyPrompt && !isMusicOnlyMode) dom.musicOnlyPromptModal.showModal(); else { isMusicOnlyMode = !isMusicOnlyMode; dom.musicOnlyBtn.forEach(b => b.classList.toggle('active', isMusicOnlyMode)); if (isPlaying) { handlePause(); setTimeout(handlePlayback, 200); } } }));
+        dom.confirmMusicOnlyBtn.addEventListener('click', () => { isMusicOnlyMode = true; dom.musicOnlyBtn.forEach(b => b.classList.add('active')); hasSeenMusicOnlyPrompt = true; localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); dom.musicOnlyPromptModal.close(); if (isPlaying) { handlePause(); setTimeout(handlePlayback, 200); } });
+        dom.cancelMusicOnlyBtn.addEventListener('click', () => { hasSeenMusicOnlyPrompt = true; localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); dom.musicOnlyPromptModal.close(); });
+        dom.themeToggle.addEventListener('click', () => dom.body.classList.contains('dark-mode') ? applyTheme('light') : applyTheme('dark'));
+        dom.openAiBotBtn.addEventListener('click', () => { if (dom.aiBotIframe.src === 'about:blank' || dom.aiBotIframe.src === '') dom.aiBotIframe.src = 'https://www.coren.xin/aibot/jmt/'; dom.aiBotModal.showModal(); });
+        dom.closeAiBotModalBtn.addEventListener('click', () => dom.aiBotModal.close());
+        dom.aiBotModal.addEventListener('click', (e) => { if (e.target === dom.aiBotModal) dom.aiBotModal.close(); });
+        
+        const startTutorialHandler = isMobile ? startTutorialMobile : startTutorial;
+        dom.startTutorialBtn.addEventListener('click', startTutorialHandler);
+
+        dom.confirmAdSelectionBtn.addEventListener('click', () => { const mobileAdSelect = dom.adSel[1]; if (mobileAdSelect.value) { const originalParent = document.querySelector('[data-tab-panel="ads"]'); originalParent.insertBefore(mobileAdSelect, null); dom.adSelectionModal.close(); handlePlayback(); } else { alert('您必须选择一个广告语！'); } });
+        applyTheme(localStorage.getItem('theme') || 'light');
+        setupPlaylistObserver();
+        setInterval(syncPlayerState, 500);
+        populateAdSelect().then(() => { const savedAd = localStorage.getItem('selected-ad') || ""; dom.adSel.forEach(sel => sel.value = savedAd); if (localStorage.getItem('hasSeenTutorial') !== 'true') { setTimeout(startTutorialHandler, 500); } }).catch(console.error);
+        autoSelectInitialPlaylist();
+        initMobileTabs();
+    }
+    initialize();
+  });
+</script>
+</body>
+</html>
+

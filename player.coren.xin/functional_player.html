@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>济民堂广告播放(全功能版)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="icon" href="jmt.png" type="image/png">
+  <script type="text/javascript" src="https://myhkw.cn/player/js/jquery.min.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/LIlGG/cdn@2.0.2/css/HarmonyOS_Sans_SC_Regular.css');
+    /* 定义CSS变量，用于颜色、圆角、阴影和过渡效果 */
+    :root {
+      --primary-color: #4a6fa5;
+      --primary-dark: #3a5a8a;
+      --secondary-color: #6b8cae;
+      --accent-color: #ff7e5f;
+      --accent-dark: #e06d50;
+      --light-color: #f8f9fa;
+      --light-gray: #e9ecef;
+      --medium-gray: #dee2e6;
+      --dark-color: #343a40;
+      --success-color: #28a745;
+      --success-dark: #218838;
+      --warning-color: #ffc107;
+      --warning-dark: #e0a800;
+      --danger-color: #dc3545;
+      --border-radius: 12px;
+      --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      --glass-effect: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+    }
+
+    /* 全局重置样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box; /* Apply box-sizing globally */
+    }
+
+    /* HTML基本样式 */
+    html {
+      overflow-x: hidden; /* Prevent horizontal scrolling globally */
+      height: 100%; 
+    }
+
+    /* 页面主体样式 */
+    body {
+      font-family: 'HarmonyOS Sans SC', 'Noto Sans SC', sans-serif; /* 应用HarmonyOS字体 */
+      color: var(--dark-color);
+      min-height: 100vh; 
+      padding: 2rem;
+      line-height: 1.6;
+      background-color: transparent; /* 移除直接的背景，交由伪元素处理 */
+      display: flex;
+      flex-direction: column;
+      position: relative; /* 为伪元素的z-index提供堆叠上下文 */
+    }
+
+    body::before {
+      content: '';
+      position: fixed; /* 固定定位，覆盖整个视口 */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('https://api.dujin.org/bing/1920.php') no-repeat center center fixed;
+      background-size: cover;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px); /* Safari support for backdrop-filter */
+      z-index: -1; /* 将伪元素置于body内容之后 */
+    }
+
+
+    /* 整体布局容器 */
+    .wrapper {
+      display: flex;
+      gap: 2rem; 
+      max-width: 1300px; 
+      margin: 0 auto; 
+      width: 100%; 
+      flex-grow: 1; 
+    }
+
+    /* 主内容区域样式 */
+    .main-content-area {
+      flex: 3; 
+      min-width: 0; 
+    }
+
+    /* 容器通用样式 */
+    .container {
+      max-width: 100%; 
+      margin: 0; 
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      padding: 2.5rem;
+      position: relative;
+      overflow: hidden; 
+      margin-bottom: 2rem;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: var(--transition);
+    }
+
+    .container:hover {
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      transform: translateY(-2px);
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      z-index: 1;
+    }
+
+    /* 侧边栏样式 */
+    .sidebar {
+      flex: 1; 
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      padding: 1.5rem;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      transition: var(--transition);
+      margin-bottom: 2rem;
+      max-width: 300px; 
+      height: fit-content;
+    }
+
+    .sidebar:hover {
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      transform: translateY(-2px);
+    }
+
+    .sidebar h2 {
+      color: var(--primary-color);
+      font-size: 1.4rem;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid rgba(74, 111, 165, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .sidebar li {
+      margin-bottom: 0;
+    }
+
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      color: white;
+      text-decoration: none;
+      border-radius: var(--border-radius);
+      transition: var(--transition);
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      gap: 0.8rem;
+    }
+
+    .sidebar a:hover {
+      background: linear-gradient(135deg, var(--primary-dark), var(--secondary-color));
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .sidebar a i {
+      width: 20px;
+      text-align: center;
+    }
+
+    /* 模态框样式 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0); 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      border: none;
+      padding: 0;
+      margin: 0;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal[open] {
+      opacity: 1;
+      visibility: visible;
+      background: rgba(0, 0, 0, 0); 
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--border-radius);
+      width: 90%;
+      height: 90%;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: none;
+      box-shadow: none; 
+    }
+
+    /* 模态框头部样式，用于放置关闭按钮 */
+    .modal-header {
+      display: flex;
+      justify-content: flex-end; 
+      padding: 10px 15px; 
+      background-color: var(--light-color); 
+      border-bottom: 1px solid var(--medium-gray); 
+      border-top-left-radius: var(--border-radius);
+      border-top-right-radius: var(--border-radius);
+    }
+
+    .modal-content iframe {
+      width: 100%;
+      flex-grow: 1; 
+      border: none;
+      background: white;
+    }
+
+    .modal-close {
+      position: static; 
+      background: var(--danger-color);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      z-index: 10; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: var(--transition);
+    }
+
+    .modal-close:hover {
+      background: var(--dark-gray);
+      transform: rotate(90deg);
+    }
+
+    /* 自定义提示框样式 */
+    .custom-prompt-modal {
+      background: rgba(0, 0, 0, 0.5); 
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .custom-prompt-modal[open] {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .custom-prompt-content {
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .custom-prompt-content p {
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+      color: var(--dark-color);
+    }
+
+    .custom-prompt-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .custom-prompt-button {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .custom-prompt-button.confirm {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .custom-prompt-button.confirm:hover {
+      background: var(--primary-dark);
+    }
+
+    .custom-prompt-button.cancel {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    .custom-prompt-button.cancel:hover {
+      background: var(--dark-gray);
+    }
+
+    /* 标题样式 */
+    h1 {
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 1.5rem;
+      font-weight: 700;
+      font-size: 2.2rem;
+      position: relative;
+      padding-bottom: 1.5rem;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h1::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: var(--accent-color);
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(255, 126, 95, 0.3);
+    }
+
+    h2 {
+      color: var(--primary-color);
+      font-size: 1.4rem;
+      margin: 1.8rem 0 1.2rem;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(74, 111, 165, 0.2);
+      padding-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    /* 控制面板布局 */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.8rem;
+      margin-bottom: 2rem;
+    }
+
+    /* 响应式设计：小屏幕设备 */
+    @media (max-width: 768px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+      .wrapper {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        max-width: 100%; 
+      }
+
+      .modal-content {
+        width: 95%;
+        height: 95%;
+      }
+    }
+
+    /* 控制组样式 */
+    .control-group {
+      background: rgba(255, 255, 255, 0.6);
+      padding: 1.8rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .control-group:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .control-group::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--glass-effect);
+      z-index: -1;
+    }
+
+    /* 标签样式 */
+    label {
+      display: block;
+      margin-bottom: 0.8rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    label i {
+      color: var(--accent-color);
+    }
+
+    /* 选择框样式 */
+    select {
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      border: 1px solid rgba(74, 111, 165, 0.3);
+      border-radius: var(--border-radius);
+      font-family: inherit;
+      font-size: 1rem;
+      background-color: rgba(255, 255, 255, 0.8);
+      color: var(--dark-color);
+      margin-bottom: 0.8rem;
+      transition: var(--transition);
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a6fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1rem;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.2);
+    }
+
+    /* 音量滑块样式 */
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      border-radius: 4px;
+      outline: none;
+      margin: 1.2rem 0;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      border: 3px solid var(--primary-color);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: var(--primary-color);
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 音量显示文本样式 */
+    .volume-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: -0.5rem; 
+      font-size: 0.9rem;
+      color: var(--primary-dark);
+    }
+    
+    #current-bgm-volume, #current-ads-volume {
+    }
+
+
+    /* 进度条容器样式 */
+    .progress-container {
+      margin-top: 1rem;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--primary-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--light-gray);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* 按钮组样式 */
+    .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 1rem; 
+      margin: 2.5rem 0;
+    }
+
+    /* 按钮通用样式 */
+    .button {
+      padding: 1rem 3rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      box-shadow: var(--box-shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      transition: 0.5s;
+    }
+
+    .button:hover::before {
+      left: 100%;
+    }
+
+    /* 播放/暂停按钮样式 */
+    #play-toggle-button {
+      background: var(--primary-color);
+      color: white;
+      position: relative;
+      z-index: 1;
+    }
+
+    #play-toggle-button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px rgba(74, 111, 165, 0.3);
+    }
+
+    #play-toggle-button.playing {
+      background: var(--warning-color);
+      color: var(--dark-color);
+    }
+
+    #play-toggle-button.playing:hover {
+      background: var(--warning-dark);
+    }
+
+    /* 仅音乐模式按钮样式 */
+    #music-only-button {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    #music-only-button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px rgba(107, 140, 174, 0.3);
+    }
+
+    #music-only-button.active {
+      background: var(--accent-color);
+      color: white;
+    }
+
+    #music-only-button.active:hover {
+      background: var(--accent-dark);
+    }
+
+    /* 状态显示区样式 */
+    .status {
+      text-align: center;
+      padding: 1.2rem;
+      margin: 2rem 0;
+      background: rgba(74, 111, 165, 0.15);
+      border-radius: var(--border-radius);
+      font-weight: 600;
+      border: 1px solid rgba(74, 111, 165, 0.2);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .status:hover {
+      transform: scale(1.01);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    #status-text {
+      color: var(--primary-color);
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 音乐信息区样式 */
+    .music-info {
+      margin-top: 2.5rem; 
+      background: rgba(255, 126, 95, 0.15);
+      padding: 1.8rem;
+      border-radius: var(--border-radius);
+      border-left: 5px solid var(--accent-color);
+      border: 1px solid rgba(255, 126, 95, 0.2);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
+      position: relative;
+      overflow: hidden;
+    }
+
+    .music-info::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)); 
+      z-index: -1;
+    }
+
+    .music-info:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 126, 95, 0.15);
+    }
+
+    .music-info p {
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-weight: 500;
+      color: var(--dark-color); 
+      padding-bottom: 0.8rem; 
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.3); 
+      word-break: break-word; 
+    }
+
+    .music-info p:last-child {
+      margin-bottom: 0;
+      border-bottom: none; 
+    }
+
+    .music-info p a {
+      color: white; 
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .music-info p a:hover {
+      color: var(--light-gray); 
+      text-decoration: underline;
+    }
+
+    /* 更新日志样式 */
+    .update-log {
+      background: rgba(255, 255, 255, 0.6);
+      padding: 1.8rem;
+      border-radius: var(--border-radius);
+      margin-top: 2.5rem;
+      box-shadow: var(--box-shadow);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+    }
+
+    .update-log:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+    }
+
+    .update-log ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+
+    .update-log li {
+      padding: 0.8rem 0;
+      border-bottom: 1px dashed rgba(74, 111, 165, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: var(--transition);
+      gap: 1rem; 
+    }
+    .update-log li > span:first-child { 
+        flex-grow: 1; 
+        word-break: break-word; 
+        min-width: 0; 
+    }
+
+
+    .update-log li:hover {
+      background: rgba(74, 111, 165, 0.05);
+      padding-left: 0.8rem;
+      padding-right: 0.8rem;
+      margin-left: -0.8rem;
+      margin-right: -0.8rem;
+      border-radius: 6px;
+    }
+
+    .update-log li:last-child {
+      border-bottom: none;
+    }
+
+    .update-date {
+      color: var(--dark-gray); 
+      font-size: 0.9rem;
+      min-width: 80px; 
+      text-align: right;
+      flex-shrink: 0; 
+    }
+
+    /* 页脚样式 */
+    footer {
+      text-align: center;
+      margin-top: 3.5rem; 
+      padding: 1.8rem 0;
+      color: white;
+      font-size: 1rem;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      width: 100%; 
+    }
+
+    footer a {
+      color: white;
+      text-decoration: none;
+      transition: var(--transition);
+      font-weight: 500;
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+
+    footer a:hover {
+      color: var(--light-gray);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* 响应式设计：更小的屏幕设备 */
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem; 
+      }
+      
+      .container {
+        padding: 1.5rem;
+      }
+      
+      h1 {
+        font-size: 1.8rem;
+      }
+      
+      .button {
+        padding: 0.8rem 1.5rem; 
+        font-size: 1rem;
+        flex-direction: column; 
+        gap: 0.4rem;
+      }
+      .button i {
+        margin-bottom: 0.2rem; 
+      }
+       .button-group {
+        flex-direction: column; 
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <main class="main-content-area">
+      <div class="container">
+        <h1>济民堂广告播放控制</h1>
+        
+        <div class="controls">
+          <div class="control-group">
+            <label for="bgm-volume"><i class="fas fa-volume-up"></i> 背景音乐音量</label>
+            <input type="range" id="bgm-volume" min="0" max="1" step="0.01" value="0.6">
+            <div class="volume-display">当前音量: <span id="current-bgm-volume">60%</span></div>
+            
+            <div class="progress-container">
+              <div class="progress-info">
+                <span id="current-time">00:00</span>
+                <span id="duration">00:00</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label for="ads-volume"><i class="fas fa-bullhorn"></i> 广告语音量</label>
+            <input type="range" id="ads-volume" min="0" max="1" step="0.01" value="1.0">
+            <div class="volume-display">当前音量: <span id="current-ads-volume">100%</span></div>
+            
+            <label for="ad-select"><i class="fas fa-list-ul"></i> 选择广告语</label>
+            <select id="ad-select">
+              </select>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="button" id="play-toggle-button" title="开始/暂停播放">
+            <i class="fas fa-play"></i> <span>开始播放</span>
+          </button>
+          <button class="button" id="music-only-button" title="开启后只播放背景音乐，不播放广告语">
+            <i class="fas fa-music"></i> <span>仅音乐模式</span>
+          </button>
+        </div>
+
+        <div class="status">当前状态：<span id="status-text">准备就绪</span></div>
+
+        <iframe 
+          src="https://www.coren.xin/aibot/jmt/" 
+          width="100%" 
+          height="600px" 
+          frameborder="0" 
+          allowfullscreen>
+        </iframe>
+
+
+        <iframe 
+          src="https://www.coren.xin/isayjmt.html" 
+          width="100%" 
+          height="439px" 
+          frameborder="0" 
+          allowfullscreen>
+        </iframe>
+        
+        <audio id="advertisement" preload="auto"><source id="ads-source" type="audio/mp3"></audio>
+      </div>
+    </main>
+
+    <aside class="sidebar">
+      <h2><i class="fas fa-tools"></i> 实用工具</h2>
+      <ul>
+        <li><a href="#" class="sidebar-link" data-modal="tutorial-modal"><i class="fas fa-book"></i> 使用教程</a></li>
+        <li><a href="https://player.coren.xin/"><i class="fas fa-paper-plane"></i> 济民堂广告播放-简洁版 </i></a></li>
+        <li><a href="#" class="sidebar-link" data-modal="voice-synthesis-modal"><i class="fas fa-microphone-alt"></i> 在线文本转语音</a></li>
+        <li><a href="#" class="sidebar-link" data-modal="file-transfer-modal"><i class="fas fa-exchange-alt"></i> 文件传输</a></li>
+        <li><a href="#" class="sidebar-link" data-modal="clipboard-sync-modal"><i class="fas fa-paste"></i> 即时剪贴板</a></li>
+        <li><a href="#" class="sidebar-link" data-modal="online-office-modal"><i class="fas fa-file-alt"></i> 金山文档在线办公协作</a></li>
+        <li><a href="http://music.alger.fun/" target="_blank"><i class="fas fa-music"></i> 在线音乐平台 <i class="fas fa-external-link-alt" style="font-size: 0.8em; margin-left: auto;"></i></a></li>
+        <li><a href="https://filehelper.weixin.qq.com/" target="_blank"><i class="fas fa-paper-plane"></i> 微信文件传输助手 <i class="fas fa-external-link-alt" style="font-size: 0.8em; margin-left: auto;"></i></a></li>
+      </ul>
+
+      <div class="music-info">
+        <p><i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 当开启“仅音乐模式”后广告语不会播放，再次选择“全模式”来同时播放广告语和音乐</p>
+        <p><i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 广告语: 单曲循环播放</p>
+        <p><i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 背景音乐: 在线播放器随机循环播放</p>
+        <p><i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 本站采用的音乐播放器界面在页面底部，可前往进行背景音乐播放，暂停，切歌，调节进度，音量等操作</p>
+        <p><i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 点击"开始播放"直接开始使用，最小化在后台播放</p>
+      </div>
+
+        <div class="update-log">
+          <h2><i class="fas fa-history" style="color: var(--primary-color);"></i> 最近更新</h2>
+          <h4><i class="fas fa-history" style="color: var(--primary-color);"></i>正在移除“最近更新”板块，如果有访问需要前往https://coren.xin/myservi<br>ce/adplayerforjmt/ 访问</h2>
+        </div>
+
+    </aside>
+  </div>
+
+  <dialog id="tutorial-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close">&times;</button>
+      </div>
+      <iframe src="https://coren.xin/myservice/adplayerforjmt/" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </dialog>
+
+  <dialog id="voice-synthesis-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close">&times;</button>
+      </div>
+      <iframe src="https://ttsmaker.cn/" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </dialog>
+
+  <dialog id="file-transfer-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close">&times;</button>
+      </div>
+      <iframe src="https://www.ppzhilian.com/" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </dialog>
+
+  <dialog id="clipboard-sync-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close">&times;</button>
+      </div>
+      <iframe src="https://clipboard.im/" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </dialog>
+
+  <dialog id="online-office-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close">&times;</button>
+      </div>
+      <iframe src="https://www.kdocs.cn/" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </dialog>
+
+  <dialog id="music-only-prompt-modal" class="modal custom-prompt-modal">
+    <div class="custom-prompt-content">
+      <p>开启“仅音乐模式”后，将只播放背景音乐，广告语将不会播放。</p>
+      <div class="custom-prompt-buttons">
+        <button class="custom-prompt-button confirm" id="confirm-music-only">确认只播放音乐</button>
+        <button class="custom-prompt-button cancel" id="cancel-music-only">需要广告语播放</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+
+  <footer>
+    <div>
+      <a href="https://coren.xin/" target="_blank">© 2025 Coren 济民堂广告播放控制v1.7.5</a>
+    </div>
+  </footer>
+
+<script>
+  // 当DOM内容完全加载后执行脚本
+  document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM元素获取 ---
+    // 背景音乐音量滑块
+    const bgmVol = document.getElementById('bgm-volume');
+    // 广告语音量滑块
+    const adsVol = document.getElementById('ads-volume');
+    // 显示当前背景音乐音量的元素
+    const curBgm = document.getElementById('current-bgm-volume');
+    // 显示当前广告语音量的元素
+    const curAds = document.getElementById('current-ads-volume');
+    // 播放/暂停切换按钮
+    const playToggleBtn = document.getElementById('play-toggle-button');
+    // 仅音乐模式切换按钮
+    const musicOnlyBtn = document.getElementById('music-only-button');
+    // 显示当前播放状态的元素
+    const statusTxt = document.getElementById('status-text');
+    // 广告语选择下拉列表
+    const adSel = document.getElementById('ad-select');
+    // 广告语HTML5 audio元素
+    const adsAudio = document.getElementById('advertisement');
+    // 显示背景音乐当前播放时间的元素
+    const currentTimeEl = document.getElementById('current-time');
+    // 显示背景音乐总时长的元素
+    const durationEl = document.getElementById('duration');
+    // 背景音乐播放进度条内部元素
+    const progressEl = document.getElementById('progress');
+
+    // --- 自定义提示框元素获取 ---
+    // 仅音乐模式提示模态框
+    const musicOnlyPromptModal = document.getElementById('music-only-prompt-modal');
+    // 提示框中的“确认只播放音乐”按钮
+    const confirmMusicOnlyBtn = document.getElementById('confirm-music-only');
+    // 提示框中的“需要广告语播放”按钮
+    const cancelMusicOnlyBtn = document.getElementById('cancel-music-only');
+
+    // --- 状态变量 ---
+    // 标记当前是否正在播放
+    let isPlaying = false;
+    // 标记当前是否为仅音乐模式
+    let isMusicOnlyMode = false;
+    // 从本地存储加载，检查用户是否已看过“仅音乐模式”提示
+    let hasSeenMusicOnlyPrompt = localStorage.getItem('hasSeenMusicOnlyPrompt') === 'true';
+    // myhkaudio 播放器对象，初始为null
+    let myhkaudio = null;
+
+    // --- 侧边栏模态框处理 ---
+    // 获取所有侧边栏链接元素
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    // 获取所有模态框（<dialog>）元素
+    const modals = document.querySelectorAll('.modal');
+    // 获取所有模态框内的关闭按钮
+    const modalCloses = document.querySelectorAll('.modal-close');
+
+    // 为所有模态框的关闭按钮添加点击事件监听器
+    modalCloses.forEach(closeBtn => {
+      closeBtn.addEventListener('click', () => {
+        const modal = closeBtn.closest('.modal'); // 找到最近的父级模态框
+        if (modal) {
+          modal.close(); // 关闭 <dialog> 元素
+        }
+      });
+    });
+
+    // 为侧边栏链接添加点击事件监听器，用于打开对应的模态框
+    sidebarLinks.forEach(link => {
+      // 检查是否为外部链接 (例如，在线音乐平台、微信文件传输助手)
+      const isExternalLink = link.target === '_blank'; // 更可靠的外部链接判断
+      
+      if (!isExternalLink) { // 如果不是外部链接，则处理为打开模态框
+        link.addEventListener('click', (e) => {
+          e.preventDefault(); // 阻止默认的链接跳转行为
+          const modalId = link.dataset.modal; // 从data-modal属性获取要打开的模态框的ID
+          const targetModal = document.getElementById(modalId);
+          if (targetModal) {
+            targetModal.showModal(); // 使用 showModal() 方法打开 <dialog> 元素
+          }
+        });
+      }
+    });
+
+    // 为所有模态框添加点击事件监听器，实现点击模态框外部区域关闭功能
+    // (不包括自定义提示框，因为它们有自己的背景遮罩和关闭逻辑)
+    modals.forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        // 如果点击事件的目标是模态框本身 (即背景区域) 并且不是自定义提示框
+        if (e.target === modal && !modal.classList.contains('custom-prompt-modal')) {
+          modal.close(); // 关闭模态框
+        }
+      });
+    });
+
+    // --- 工具函数 ---
+    // 格式化时间为 MM:SS 字符串
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0'); // 秒数补零
+      return `${minutes}:${secs}`;
+    }
+
+    // 更新背景音乐进度条和时间显示
+    function updateProgress() {
+      if (!myhkaudio) return; // 如果播放器对象未初始化，则不执行
+
+      const currentTime = myhkaudio.currentTime; // 获取当前播放时间
+      const duration = myhkaudio.duration || 0; // 获取总时长，如果未加载则为0
+
+      currentTimeEl.textContent = formatTime(currentTime); // 更新当前时间显示
+      durationEl.textContent = formatTime(duration); // 更新总时长显示
+      // 更新进度条宽度，如果总时长有效则计算百分比
+      progressEl.style.width = duration ? `${(currentTime / duration) * 100}%` : '0%';
+    }
+
+    // --- 核心功能函数 ---
+    // 函数：异步获取并填充广告语下拉列表
+    async function populateAdSelect() {
+      try {
+        // **重要**: 确保 '/api/get-ad-list' 是您服务器端获取广告列表的正确API端点
+        // 添加时间戳参数 `t=` 防止浏览器缓存旧的列表数据
+        const response = await fetch('/api/get-ad-list?t=' + new Date().getTime());
+        if (!response.ok) { // 检查HTTP响应状态
+          throw new Error(`无法加载广告列表: ${response.statusText} (状态码: ${response.status})`);
+        }
+        const adFiles = await response.json(); // 解析响应体为JSON，期望格式: [{ "name": "显示名称", "file": "文件名.mp3" }, ...]
+
+        adSel.innerHTML = ''; // 清空下拉列表中现有的所有选项
+
+        if (adFiles && adFiles.length > 0) { // 如果成功获取到广告文件列表且列表不为空
+          adFiles.forEach(ad => {
+            const option = document.createElement('option');
+            // 假设广告文件由 Flask 从 static 目录通过 /static URL 路径提供
+            // 构建广告文件的完整URL路径
+            option.value = `/static/audio/ads/${ad.file}`;
+            option.textContent = ad.name; // 设置选项显示的文本为广告名称
+            adSel.appendChild(option); // 将新创建的选项添加到下拉列表中
+          });
+
+          // 尝试从本地存储加载并选中之前保存的广告选项
+          const savedAd = localStorage.getItem('selected-ad');
+          if (savedAd && adSel.querySelector(`option[value="${savedAd}"]`)) {
+            adSel.value = savedAd; // 如果找到了之前保存的选项，则选中它
+          } else if (adFiles[0] && adFiles[0].file) { // 修复 Bug：确保默认选中第一个广告
+            // 统一默认路径为 /static/audio/ads/
+            adSel.value = `/static/audio/ads/${adFiles[0].file}`;
+          }
+        } else { // 如果列表为空或加载失败
+          const option = document.createElement('option');
+          option.value = ""; // 值设为空
+          option.textContent = "无可用广告语"; // 显示提示信息
+          adSel.appendChild(option);
+        }
+      } catch (error) { // 捕获在获取或处理过程中发生的错误
+        console.error('填充广告列表时出错:', error);
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = '广告列表加载失败'; // 在下拉列表中显示错误提示
+        adSel.appendChild(option);
+      }
+    }
+
+    // 处理播放逻辑的函数
+    // playAds: 布尔值，指示是否应播放广告语
+    function handlePlayback(playAds) {
+      if (myhkaudio) myhkaudio.play(); // 播放背景音乐 (如果播放器已准备好)
+
+      if (playAds && adSel.value) { // 如果需要播放广告且当前已选中一个广告
+        // 为广告音频源添加时间戳以防止缓存
+        adsAudio.src = adSel.value + '?t=' + new Date().getTime();
+        adsAudio.loop = true; // 设置广告语循环播放
+        // 尝试播放广告，并捕获可能发生的错误 (例如，用户未与页面交互)
+        adsAudio.play().catch(e => console.error('广告播放失败:', e));
+      } else { // 如果不需要播放广告 (例如，仅音乐模式)
+        adsAudio.pause(); // 暂停广告语
+        adsAudio.src = ""; // 清空广告语的源，以停止加载或播放
+      }
+      isPlaying = true; // 更新播放状态为“正在播放”
+      // 根据是否播放广告更新状态文本
+      statusTxt.textContent = playAds ? '播放中 (音乐与广告)' : '播放中 (仅音乐)';
+      // 更新播放/暂停按钮的图标和文本为“暂停”状态
+      playToggleBtn.innerHTML = '<i class="fas fa-pause"></i> <span>暂停播放</span>';
+      playToggleBtn.classList.add('playing'); // 添加 'playing' 类以应用特定样式
+    }
+
+    // 处理暂停逻辑的函数
+    function handlePause() {
+      if (myhkaudio) myhkaudio.pause(); // 暂停背景音乐 (如果播放器已准备好)
+      adsAudio.pause(); // 暂停广告语
+      isPlaying = false; // 更新播放状态为“已暂停”
+      statusTxt.textContent = '已暂停'; // 更新状态文本
+      // 更新播放/暂停按钮的图标和文本为“播放”状态
+      playToggleBtn.innerHTML = '<i class="fas fa-play"></i> <span>开始播放</span>';
+      playToggleBtn.classList.remove('playing'); // 移除 'playing' 类
+    }
+
+    // --- 事件监听器 ---
+    // 播放/暂停控制按钮的点击事件
+    playToggleBtn.addEventListener('click', () => {
+      if (isPlaying) { // 如果当前正在播放
+        handlePause(); // 则执行暂停逻辑
+      } else { // 如果当前已暂停
+        // 用户希望“开始播放”按钮默认总是播放音乐和广告语
+        isMusicOnlyMode = false; // 确保切换到全模式 (播放音乐和广告)
+        musicOnlyBtn.classList.remove('active'); // 移除仅音乐模式按钮的激活样式
+        musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; // 恢复按钮文本
+        musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; // 恢复按钮提示
+        handlePlayback(true); // 执行播放逻辑，并播放广告
+      }
+    });
+
+    // 仅音乐模式按钮的点击事件
+    musicOnlyBtn.addEventListener('click', () => {
+      if (!hasSeenMusicOnlyPrompt) { // 如果用户是首次点击“仅音乐模式”按钮
+        musicOnlyPromptModal.showModal(); // 显示提示框，让用户确认操作
+      } else { // 如果用户已看过提示 (非首次点击)
+        isMusicOnlyMode = !isMusicOnlyMode; // 切换仅音乐模式的状态
+        musicOnlyBtn.classList.toggle('active', isMusicOnlyMode); // 切换按钮的 'active' 样式
+
+        if (isMusicOnlyMode) { // 如果切换到仅音乐模式
+          musicOnlyBtn.innerHTML = '<i class="fas fa-volume-mute"></i> <span>全模式</span>'; // 更新按钮文本和图标
+          musicOnlyBtn.title = '开启后同时播放背景音乐和广告语'; // 更新按钮提示
+          handlePlayback(false); // 执行播放逻辑，不播放广告
+        } else { // 如果切换回全模式 (音乐和广告)
+          musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; // 更新按钮文本和图标
+          musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; // 更新按钮提示
+          handlePlayback(true); // 执行播放逻辑，并播放广告
+        }
+      }
+    });
+
+    // 仅音乐模式提示框：“确认只播放音乐”按钮的点击事件
+    confirmMusicOnlyBtn.addEventListener('click', () => {
+      isMusicOnlyMode = true; // 设置为仅音乐模式
+      localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); // 保存到本地存储，标记用户已看过提示
+      hasSeenMusicOnlyPrompt = true; // 更新内存中的标记
+      musicOnlyBtn.classList.add('active'); // 激活仅音乐模式按钮的样式
+      musicOnlyBtn.innerHTML = '<i class="fas fa-volume-mute"></i> <span>全模式</span>'; // 更新按钮文本和图标
+      musicOnlyBtn.title = '开启后同时播放背景音乐和广告语'; // 更新按钮提示
+      handlePlayback(false); // 执行播放逻辑，不播放广告
+      musicOnlyPromptModal.close(); // 关闭提示框
+    });
+
+    // 仅音乐模式提示框：“需要广告语播放”按钮的点击事件
+    cancelMusicOnlyBtn.addEventListener('click', () => {
+      isMusicOnlyMode = false; // 设置为全模式 (非仅音乐模式)
+      localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); // 保存到本地存储，标记用户已看过提示
+      hasSeenMusicOnlyPrompt = true; // 更新内存中的标记
+      musicOnlyBtn.classList.remove('active'); // 移除仅音乐模式按钮的激活样式
+      musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; // 更新按钮文本和图标
+      musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; // 更新按钮提示
+      handlePlayback(true); // 执行播放逻辑，并播放广告
+      musicOnlyPromptModal.close(); // 关闭提示框
+    });
+
+    // 广告语选择下拉列表的 'change' 事件 (当用户选择不同广告时触发)
+    adSel.addEventListener('change', () => {
+      localStorage.setItem('selected-ad', adSel.value); // 将当前选中的广告保存到本地存储
+      // 如果当前正在播放，并且选中的广告有效，并且不是仅音乐模式
+      if (isPlaying && adSel.value && !isMusicOnlyMode) {
+        adsAudio.src = adSel.value + '?t=' + new Date().getTime(); // 更新广告音频源 (加时间戳)
+        adsAudio.loop = true; // 确保循环播放
+        adsAudio.play().catch(e => console.error('切换广告播放失败:', e)); // 尝试播放新选择的广告
+      } else if (!adSel.value) { // 如果用户选择了一个无效或空的广告选项
+        adsAudio.pause(); // 暂停广告播放
+        adsAudio.src = ""; // 清空广告源
+      }
+    });
+
+    // --- 初始化 ---
+    // 定时器：等待 myhkaudio 播放器对象就绪
+    // (myhkaudio 是由外部脚本 https://myhkw.cn/api/player/... 异步加载和初始化的)
+    const waitForPlayer = setInterval(async () => {
+      if (window.myhkaudio) { // 如果 window.myhkaudio 对象已存在 (即播放器已加载)
+        clearInterval(waitForPlayer); // 清除定时器，不再继续检查
+        myhkaudio = window.myhkaudio; // 将全局播放器对象赋值给局部变量
+
+        // 首先异步填充广告语下拉列表
+        await populateAdSelect(); // 等待广告列表填充完毕后再执行后续初始化
+
+        // 设置初始音量和其他初始化代码
+        if (myhkaudio) { // 确保 myhkaudio 对象存在
+          myhkaudio.volume = parseFloat(bgmVol.value); // 根据滑块的当前值设置背景音乐音量
+        }
+        adsAudio.volume = parseFloat(adsVol.value); // 根据滑块的当前值设置广告语音量
+
+        // 背景音乐音量控制滑块的 'input' 事件 (当用户拖动滑块时实时触发)
+        bgmVol.addEventListener('input', () => {
+          const v = parseFloat(bgmVol.value); // 获取滑块的当前值 (0到1之间)
+          if (myhkaudio) myhkaudio.volume = v; // 设置背景音乐音量
+          curBgm.textContent = `${Math.round(v * 100)}%`; // 更新音量百分比显示
+          localStorage.setItem('bgm-volume', v.toString()); // 将音量设置保存到本地存储
+        });
+
+        // 广告语音量控制滑块的 'input' 事件
+        adsVol.addEventListener('input', () => {
+          const v = parseFloat(adsVol.value);
+          adsAudio.volume = v; // 设置广告语音量
+          curAds.textContent = `${Math.round(v * 100)}%`; // 更新音量百分比显示
+          localStorage.setItem('ads-volume', v.toString()); // 保存到本地存储
+        });
+
+        // 为背景音乐播放器添加事件监听器以更新进度
+        if (myhkaudio) {
+          myhkaudio.addEventListener('timeupdate', updateProgress); // 播放时间更新时触发
+          myhkaudio.addEventListener('loadedmetadata', updateProgress); // 元数据加载完成时触发 (获取总时长)
+        }
+
+        // 从本地存储加载之前保存的音量设置
+        const savedBgmVol = localStorage.getItem('bgm-volume');
+        if (savedBgmVol && myhkaudio) { // 如果找到了保存的背景音乐音量
+          bgmVol.value = savedBgmVol; // 更新滑块位置
+          myhkaudio.volume = parseFloat(savedBgmVol); // 设置播放器音量
+          curBgm.textContent = `${Math.round(parseFloat(savedBgmVol) * 100)}%`; // 更新显示
+        }
+
+        const savedAdsVol = localStorage.getItem('ads-volume');
+        if (savedAdsVol) { // 如果找到了保存的广告语音量
+          adsVol.value = savedAdsVol; // 更新滑块位置
+          adsAudio.volume = parseFloat(savedAdsVol); // 设置播放器音量
+          curAds.textContent = `${Math.round(parseFloat(savedAdsVol) * 100)}%`; // 更新显示
+        }
+
+        // 初始化状态文本，基于广告列表的加载情况
+        if (adSel.options.length > 0 && adSel.value && adSel.options[0].value !== "") {
+          // 如果广告列表已加载且有有效选项
+          statusTxt.textContent = '准备就绪';
+        } else if (adSel.options.length > 0 && !adSel.options[0].value) {
+          // 如果广告列表加载了但第一个选项是提示信息 (如 "无可用广告语" 或 "加载失败")
+          statusTxt.textContent = adSel.options[0].textContent;
+        } else {
+          // 如果广告列表尚未填充或正在加载中
+          statusTxt.textContent = '初始化中...';
+        }
+      }
+    }, 100); // 每100毫秒检查一次 myhkaudio 是否就绪
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>济民堂广告播放控制</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="icon" href="jmt.png" type="image/png">
+  <script type="text/javascript" src="https://myhkw.cn/player/js/jquery.min.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/LIlGG/cdn@2.0.2/css/HarmonyOS_Sans_SC_Regular.css');
+    /* 定义CSS变量，用于颜色、圆角、阴影和过渡效果 */
+    :root {
+      --primary-color: #4a6fa5;
+      --primary-dark: #3a5a8a;
+      --secondary-color: #6b8cae;
+      --accent-color: #ff7e5f;
+      --accent-dark: #e06d50;
+      --light-color: #f8f9fa;
+      --light-gray: #e9ecef;
+      --medium-gray: #dee2e6;
+      --dark-color: #343a40;
+      --success-color: #28a745;
+      --success-dark: #218838;
+      --warning-color: #ffc107;
+      --warning-dark: #e0a800;
+      --danger-color: #dc3545;
+      --border-radius: 12px;
+      --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      --glass-effect: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+    }
+
+    /* 全局重置样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box; /* Apply box-sizing globally */
+    }
+
+    /* HTML基本样式 */
+    html {
+      overflow-x: hidden; /* Prevent horizontal scrolling globally */
+      height: 100%; 
+    }
+
+    /* 页面主体样式 */
+    body {
+      font-family: 'HarmonyOS Sans SC', 'Noto Sans SC', sans-serif; /* 应用HarmonyOS字体 */
+      color: var(--dark-color);
+      min-height: 100vh; 
+      padding: 2rem;
+      line-height: 1.6;
+      background-color: transparent; /* 移除直接的背景，交由伪元素处理 */
+      display: flex;
+      flex-direction: column;
+      align-items: center; /* Center the wrapper */
+      position: relative; /* 为伪元素的z-index提供堆叠上下文 */
+    }
+
+    body::before {
+      content: '';
+      position: fixed; /* 固定定位，覆盖整个视口 */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('https://api.dujin.org/bing/1920.php') no-repeat center center fixed;
+      background-size: cover;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px); /* Safari support for backdrop-filter */
+      z-index: -1; /* 将伪元素置于body内容之后 */
+    }
+
+
+    /* 整体布局容器 */
+    .wrapper {
+      /* display: flex; Removed flex as sidebar is gone */
+      /* gap: 2rem;  Removed gap as sidebar is gone */
+      max-width: 800px; /* Adjusted max-width for a single column layout */
+      margin: 0 auto; 
+      width: 100%; 
+      flex-grow: 1; 
+      display: flex; /* Added to allow main-content-area to grow */
+      flex-direction: column; /* Ensure main content area takes up space */
+    }
+
+    /* 主内容区域样式 */
+    .main-content-area {
+      /* flex: 3; Removed as it's the only child now */
+      min-width: 0; 
+      width: 100%; /* Ensure it takes full width of the wrapper */
+    }
+
+    /* 容器通用样式 */
+    .container {
+      max-width: 100%; 
+      margin: 0; 
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      padding: 2.5rem;
+      position: relative;
+      overflow: hidden; 
+      margin-bottom: 2rem;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: var(--transition);
+    }
+
+    .container:hover {
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      transform: translateY(-2px);
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      z-index: 1;
+    }
+
+    /* 模态框样式 (Only music-only-prompt-modal remains relevant for opening) */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0); 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      border: none;
+      padding: 0;
+      margin: 0;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal[open] {
+      opacity: 1;
+      visibility: visible;
+      background: rgba(0, 0, 0, 0.6); /* Darken background when modal is open */
+    }
+    
+    /* 自定义提示框样式 (music-only-prompt-modal) */
+    .custom-prompt-modal .custom-prompt-content { /* Specific to the prompt modal */
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .custom-prompt-content p {
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+      color: var(--dark-color);
+    }
+
+    .custom-prompt-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .custom-prompt-button {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .custom-prompt-button.confirm {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .custom-prompt-button.confirm:hover {
+      background: var(--primary-dark);
+    }
+
+    .custom-prompt-button.cancel {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    .custom-prompt-button.cancel:hover {
+      background: var(--dark-gray);
+    }
+
+    /* 标题样式 */
+    h1 {
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 1.5rem;
+      font-weight: 700;
+      font-size: 2.2rem;
+      position: relative;
+      padding-bottom: 1.5rem;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h1::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: var(--accent-color);
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(255, 126, 95, 0.3);
+    }
+
+    /* 控制面板布局 */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.8rem;
+      margin-bottom: 2rem;
+    }
+
+    /* 响应式设计：小屏幕设备 */
+    @media (max-width: 768px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+      /* .wrapper flex-direction already column for small screens if sidebar was present,
+         now it's always a single column so this specific media query for wrapper might not be needed
+         if the base style of wrapper is already suitable for centering a single column.
+      */
+    }
+
+    /* 控制组样式 */
+    .control-group {
+      background: rgba(255, 255, 255, 0.6);
+      padding: 1.8rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .control-group:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .control-group::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--glass-effect);
+      z-index: -1;
+    }
+
+    /* 标签样式 */
+    label {
+      display: block;
+      margin-bottom: 0.8rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    label i {
+      color: var(--accent-color);
+    }
+
+    /* 选择框样式 */
+    select {
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      border: 1px solid rgba(74, 111, 165, 0.3);
+      border-radius: var(--border-radius);
+      font-family: inherit;
+      font-size: 1rem;
+      background-color: rgba(255, 255, 255, 0.8);
+      color: var(--dark-color);
+      margin-bottom: 0.8rem;
+      transition: var(--transition);
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a6fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1rem;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.2);
+    }
+
+    /* 音量滑块样式 */
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      border-radius: 4px;
+      outline: none;
+      margin: 1.2rem 0;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      border: 3px solid var(--primary-color);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: var(--primary-color);
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 音量显示文本样式 */
+    .volume-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: -0.5rem; 
+      font-size: 0.9rem;
+      color: var(--primary-dark);
+    }
+    
+    #current-bgm-volume, #current-ads-volume {
+    }
+
+
+    /* 进度条容器样式 */
+    .progress-container {
+      margin-top: 1rem;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--primary-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--light-gray);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* 按钮组样式 */
+    .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 1rem; 
+      margin: 2.5rem 0;
+    }
+
+    /* 按钮通用样式 */
+    .button {
+      padding: 1rem 3rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      box-shadow: var(--box-shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      transition: 0.5s;
+    }
+
+    .button:hover::before {
+      left: 100%;
+    }
+
+    /* 播放/暂停按钮样式 */
+    #play-toggle-button {
+      background: var(--primary-color);
+      color: white;
+      position: relative;
+      z-index: 1;
+    }
+
+    #play-toggle-button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px rgba(74, 111, 165, 0.3);
+    }
+
+    #play-toggle-button.playing {
+      background: var(--warning-color);
+      color: var(--dark-color);
+    }
+
+    #play-toggle-button.playing:hover {
+      background: var(--warning-dark);
+    }
+
+    /* 仅音乐模式按钮样式 */
+    #music-only-button {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    #music-only-button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px rgba(107, 140, 174, 0.3);
+    }
+
+    #music-only-button.active {
+      background: var(--accent-color);
+      color: white;
+    }
+
+    #music-only-button.active:hover {
+      background: var(--accent-dark);
+    }
+
+    /* 状态显示区样式 */
+    .status {
+      text-align: center;
+      padding: 1.2rem;
+      margin: 2rem 0;
+      background: rgba(74, 111, 165, 0.15);
+      border-radius: var(--border-radius);
+      font-weight: 600;
+      border: 1px solid rgba(74, 111, 165, 0.2);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: var(--transition);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .status:hover {
+      transform: scale(1.01);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    #status-text {
+      color: var(--primary-color);
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 页脚样式 */
+    footer {
+      text-align: center;
+      margin-top: 3.5rem; 
+      padding: 1.8rem 0;
+      color: white;
+      font-size: 1rem;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      width: 100%; 
+    }
+
+    footer a {
+      color: white;
+      text-decoration: none;
+      transition: var(--transition);
+      font-weight: 500;
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+
+    footer a:hover {
+      color: var(--light-gray);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* 响应式设计：更小的屏幕设备 */
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem; 
+      }
+      
+      .container {
+        padding: 1.5rem;
+      }
+      
+      h1 {
+        font-size: 1.8rem;
+      }
+      
+      .button {
+        padding: 0.8rem 1.5rem; 
+        font-size: 1rem;
+        flex-direction: column; 
+        gap: 0.4rem;
+      }
+      .button i {
+        margin-bottom: 0.2rem; 
+      }
+       .button-group {
+        flex-direction: column; 
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <main class="main-content-area">
+      <div class="container">
+        <h1>济民堂广告播放控制</h1>
+        
+        <div class="controls">
+          <div class="control-group">
+            <label for="bgm-volume"><i class="fas fa-volume-up"></i> 背景音乐音量</label>
+            <input type="range" id="bgm-volume" min="0" max="1" step="0.01" value="0.6">
+            <div class="volume-display">当前音量: <span id="current-bgm-volume">60%</span></div>
+            
+            <div class="progress-container">
+              <div class="progress-info">
+                <span id="current-time">00:00</span>
+                <span id="duration">00:00</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label for="ads-volume"><i class="fas fa-bullhorn"></i> 广告语音量</label>
+            <input type="range" id="ads-volume" min="0" max="1" step="0.01" value="1.0">
+            <div class="volume-display">当前音量: <span id="current-ads-volume">100%</span></div>
+            
+            <label for="ad-select"><i class="fas fa-list-ul"></i> 选择广告语</label>
+            <select id="ad-select">
+              </select>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="button" id="play-toggle-button" title="开始/暂停播放">
+            <i class="fas fa-play"></i> <span>开始播放</span>
+          </button>
+          <button class="button" id="music-only-button" title="开启后只播放背景音乐，不播放广告语">
+            <i class="fas fa-music"></i> <span>仅音乐模式</span>
+          </button>
+        </div>
+
+        <div class="status">当前状态：<span id="status-text">准备就绪</span></div>
+                
+        <audio id="advertisement" preload="auto"><source id="ads-source" type="audio/mp3"></audio>
+      </div>
+    </main>
+
+    </div>
+
+  <dialog id="music-only-prompt-modal" class="modal custom-prompt-modal">
+    <div class="custom-prompt-content">
+      <p>开启“仅音乐模式”后，将只播放背景音乐，广告语将不会播放。</p>
+      <div class="custom-prompt-buttons">
+        <button class="custom-prompt-button confirm" id="confirm-music-only">确认只播放音乐</button>
+        <button class="custom-prompt-button cancel" id="cancel-music-only">需要广告语播放</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+
+  <footer>
+    <div>
+      <a href="https://coren.xin/" target="_blank">© 2025 Coren 济民堂广告播放控制v1.7.5</a> |
+      <a href="https://beian.miit.gov.cn/#/Integrated/index" target="_blank">蜀ICP备2025133881号</a>
+    </div>
+  </footer>
+
+<script>
+  // 当DOM内容完全加载后执行脚本
+  document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM元素获取 ---
+    const bgmVol = document.getElementById('bgm-volume');
+    const adsVol = document.getElementById('ads-volume');
+    const curBgm = document.getElementById('current-bgm-volume');
+    const curAds = document.getElementById('current-ads-volume');
+    const playToggleBtn = document.getElementById('play-toggle-button');
+    const musicOnlyBtn = document.getElementById('music-only-button');
+    const statusTxt = document.getElementById('status-text');
+    const adSel = document.getElementById('ad-select');
+    const adsAudio = document.getElementById('advertisement');
+    const currentTimeEl = document.getElementById('current-time');
+    const durationEl = document.getElementById('duration');
+    const progressEl = document.getElementById('progress');
+
+    // --- 自定义提示框元素获取 ---
+    const musicOnlyPromptModal = document.getElementById('music-only-prompt-modal');
+    const confirmMusicOnlyBtn = document.getElementById('confirm-music-only');
+    const cancelMusicOnlyBtn = document.getElementById('cancel-music-only');
+
+    // --- 状态变量 ---
+    let isPlaying = false;
+    let isMusicOnlyMode = false;
+    let hasSeenMusicOnlyPrompt = localStorage.getItem('hasSeenMusicOnlyPrompt') === 'true';
+    let myhkaudio = null;
+
+    // --- 侧边栏模态框处理 (相关代码保留，但由于元素已移除，部分将不会执行) ---
+    // 获取所有侧边栏链接元素 (现在会是空NodeList或只包含非侧边栏的.sidebar-link，如果有的话)
+    const sidebarLinks = document.querySelectorAll('.sidebar-link'); // Kept for now, in case other .sidebar-link exist
+    // 获取所有模态框（<dialog>）元素 (现在主要是 music-only-prompt-modal)
+    const modals = document.querySelectorAll('.modal'); 
+    const modalCloses = document.querySelectorAll('.modal-close'); // This will only find closes in remaining modals
+
+    modalCloses.forEach(closeBtn => {
+      closeBtn.addEventListener('click', () => {
+        const modal = closeBtn.closest('.modal'); 
+        if (modal) {
+          modal.close(); 
+        }
+      });
+    });
+
+    sidebarLinks.forEach(link => { // This loop might not run if no .sidebar-link elements are found
+      const isExternalLink = link.target === '_blank'; 
+      if (!isExternalLink) { 
+        link.addEventListener('click', (e) => {
+          e.preventDefault(); 
+          const modalId = link.dataset.modal; 
+          const targetModal = document.getElementById(modalId);
+          if (targetModal) {
+            targetModal.showModal(); 
+          }
+        });
+      }
+    });
+
+    modals.forEach(modal => { // This will apply to music-only-prompt-modal
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal && !modal.classList.contains('custom-prompt-modal')) {
+          modal.close(); 
+        }
+      });
+    });
+
+    // --- 工具函数 ---
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${minutes}:${secs}`;
+    }
+
+    function updateProgress() {
+      if (!myhkaudio) return; 
+
+      const currentTime = myhkaudio.currentTime; 
+      const duration = myhkaudio.duration || 0; 
+
+      currentTimeEl.textContent = formatTime(currentTime); 
+      durationEl.textContent = formatTime(duration); 
+      progressEl.style.width = duration ? `${(currentTime / duration) * 100}%` : '0%';
+    }
+
+    // --- 核心功能函数 ---
+    async function populateAdSelect() {
+      try {
+        const response = await fetch('/api/get-ad-list?t=' + new Date().getTime());
+        if (!response.ok) { 
+          throw new Error(`无法加载广告列表: ${response.statusText} (状态码: ${response.status})`);
+        }
+        const adFiles = await response.json(); 
+
+        adSel.innerHTML = ''; 
+
+        if (adFiles && adFiles.length > 0) { 
+          adFiles.forEach(ad => {
+            const option = document.createElement('option');
+            option.value = `/static/audio/ads/${ad.file}`;
+            option.textContent = ad.name; 
+            adSel.appendChild(option); 
+          });
+
+          const savedAd = localStorage.getItem('selected-ad');
+          if (savedAd && adSel.querySelector(`option[value="${savedAd}"]`)) {
+            adSel.value = savedAd; 
+          } else if (adFiles[0] && adFiles[0].file) { 
+            adSel.value = `/static/audio/ads/${adFiles[0].file}`;
+          }
+        } else { 
+          const option = document.createElement('option');
+          option.value = ""; 
+          option.textContent = "无可用广告语"; 
+          adSel.appendChild(option);
+        }
+      } catch (error) { 
+        console.error('填充广告列表时出错:', error);
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = '广告列表加载失败'; 
+        adSel.appendChild(option);
+      }
+    }
+
+    function handlePlayback(playAds) {
+      if (myhkaudio) myhkaudio.play(); 
+
+      if (playAds && adSel.value) { 
+        adsAudio.src = adSel.value + '?t=' + new Date().getTime();
+        adsAudio.loop = true; 
+        adsAudio.play().catch(e => console.error('广告播放失败:', e));
+      } else { 
+        adsAudio.pause(); 
+        adsAudio.src = ""; 
+      }
+      isPlaying = true; 
+      statusTxt.textContent = playAds ? '播放中 (音乐与广告)' : '播放中 (仅音乐)';
+      playToggleBtn.innerHTML = '<i class="fas fa-pause"></i> <span>暂停播放</span>';
+      playToggleBtn.classList.add('playing'); 
+    }
+
+    function handlePause() {
+      if (myhkaudio) myhkaudio.pause(); 
+      adsAudio.pause(); 
+      isPlaying = false; 
+      statusTxt.textContent = '已暂停'; 
+      playToggleBtn.innerHTML = '<i class="fas fa-play"></i> <span>开始播放</span>';
+      playToggleBtn.classList.remove('playing'); 
+    }
+
+    // --- 事件监听器 ---
+    playToggleBtn.addEventListener('click', () => {
+      if (isPlaying) { 
+        handlePause(); 
+      } else { 
+        isMusicOnlyMode = false; 
+        musicOnlyBtn.classList.remove('active'); 
+        musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; 
+        musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; 
+        handlePlayback(true); 
+      }
+    });
+
+    musicOnlyBtn.addEventListener('click', () => {
+      if (!hasSeenMusicOnlyPrompt) { 
+        musicOnlyPromptModal.showModal(); 
+      } else { 
+        isMusicOnlyMode = !isMusicOnlyMode; 
+        musicOnlyBtn.classList.toggle('active', isMusicOnlyMode); 
+
+        if (isMusicOnlyMode) { 
+          musicOnlyBtn.innerHTML = '<i class="fas fa-volume-mute"></i> <span>全模式</span>'; 
+          musicOnlyBtn.title = '开启后同时播放背景音乐和广告语'; 
+          if (isPlaying) handlePlayback(false); 
+          else statusTxt.textContent = '已暂停 (仅音乐模式准备就绪)'; 
+        } else { 
+          musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; 
+          musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; 
+          if (isPlaying) handlePlayback(true); 
+          else statusTxt.textContent = '已暂停 (音乐与广告准备就绪)'; 
+        }
+      }
+    });
+
+    confirmMusicOnlyBtn.addEventListener('click', () => {
+      isMusicOnlyMode = true; 
+      localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); 
+      hasSeenMusicOnlyPrompt = true; 
+      musicOnlyBtn.classList.add('active'); 
+      musicOnlyBtn.innerHTML = '<i class="fas fa-volume-mute"></i> <span>全模式</span>'; 
+      musicOnlyBtn.title = '开启后同时播放背景音乐和广告语'; 
+      if(isPlaying) handlePlayback(false); 
+      else statusTxt.textContent = isPlaying ? '播放中 (仅音乐)' : '已暂停 (仅音乐模式准备就绪)';
+      musicOnlyPromptModal.close(); 
+    });
+
+    cancelMusicOnlyBtn.addEventListener('click', () => {
+      isMusicOnlyMode = false; 
+      localStorage.setItem('hasSeenMusicOnlyPrompt', 'true'); 
+      hasSeenMusicOnlyPrompt = true; 
+      musicOnlyBtn.classList.remove('active'); 
+      musicOnlyBtn.innerHTML = '<i class="fas fa-music"></i> <span>仅音乐模式</span>'; 
+      musicOnlyBtn.title = '开启后只播放背景音乐，不播放广告语'; 
+      if(isPlaying) handlePlayback(true); 
+      else statusTxt.textContent = isPlaying ? '播放中 (音乐与广告)' : '已暂停 (音乐与广告准备就绪)';
+      musicOnlyPromptModal.close(); 
+    });
+
+    adSel.addEventListener('change', () => {
+      localStorage.setItem('selected-ad', adSel.value); 
+      if (isPlaying && adSel.value && !isMusicOnlyMode) {
+        adsAudio.src = adSel.value + '?t=' + new Date().getTime(); 
+        adsAudio.loop = true; 
+        adsAudio.play().catch(e => console.error('切换广告播放失败:', e)); 
+      } else if (!adSel.value) { 
+        adsAudio.pause(); 
+        adsAudio.src = ""; 
+      }
+    });
+
+    // --- 初始化 ---
+    const waitForPlayer = setInterval(async () => {
+      if (window.myhkaudio) { 
+        clearInterval(waitForPlayer); 
+        myhkaudio = window.myhkaudio; 
+
+        await populateAdSelect(); 
+
+        if (myhkaudio) { 
+          myhkaudio.volume = parseFloat(bgmVol.value); 
+        }
+        adsAudio.volume = parseFloat(adsVol.value); 
+
+        bgmVol.addEventListener('input', () => {
+          const v = parseFloat(bgmVol.value); 
+          if (myhkaudio) myhkaudio.volume = v; 
+          curBgm.textContent = `${Math.round(v * 100)}%`; 
+          localStorage.setItem('bgm-volume', v.toString()); 
+        });
+
+        adsVol.addEventListener('input', () => {
+          const v = parseFloat(adsVol.value);
+          adsAudio.volume = v; 
+          curAds.textContent = `${Math.round(v * 100)}%`; 
+          localStorage.setItem('ads-volume', v.toString()); 
+        });
+
+        if (myhkaudio) {
+          myhkaudio.addEventListener('timeupdate', updateProgress); 
+          myhkaudio.addEventListener('loadedmetadata', updateProgress); 
+        }
+
+        const savedBgmVol = localStorage.getItem('bgm-volume');
+        if (savedBgmVol && myhkaudio) { 
+          bgmVol.value = savedBgmVol; 
+          myhkaudio.volume = parseFloat(savedBgmVol); 
+          curBgm.textContent = `${Math.round(parseFloat(savedBgmVol) * 100)}%`; 
+        }
+
+        const savedAdsVol = localStorage.getItem('ads-volume');
+        if (savedAdsVol) { 
+          adsVol.value = savedAdsVol; 
+          adsAudio.volume = parseFloat(savedAdsVol); 
+          curAds.textContent = `${Math.round(parseFloat(savedAdsVol) * 100)}%`; 
+        }
+
+        if (adSel.options.length > 0 && adSel.value && adSel.options[0].value !== "") {
+          statusTxt.textContent = '准备就绪';
+        } else if (adSel.options.length > 0 && !adSel.options[0].value) {
+          statusTxt.textContent = adSel.options[0].textContent;
+        } else {
+          statusTxt.textContent = '初始化中...';
+        }
+      }
+    }, 100); 
+  });
+</script>
+</body>
+</html>
