@@ -1025,20 +1025,68 @@ function initPlaybackGuard() {
   let shouldBePlaying = false;
   let userInitiatedPause = false; // 标记用户主动暂停
   let recoveryAttempts = 0;
+  let isRecovering = false; // 防止并发恢复
+  let songTransitioning = false; // 切歌过渡期标记
   const MAX_RECOVERY_ATTEMPTS = 5;
 
-  // 拦截用户主动暂停操作（来自我们的 UI 或托盘控制）
-  // 当用户通过我们的按钮暂停时，设置标志
+  // ====== 通过 UI 按钮恢复播放（核心修复） ======
+  // 关键：必须通过网页的播放按钮恢复，而非直接 media.play()
+  // 因为网页的 syncPlayerState 每500ms检查：如果 myhk在播放 但 isPlaying==false → 强制暂停
+  // 只有点击播放按钮才会触发网页的 handlePlayback() → 设置 isPlaying=true
+  function resumePlaybackViaUI() {
+    if (isRecovering) return false;
+    isRecovering = true;
+
+    const btn = document.getElementById('play-toggle-button-desktop')
+      || document.querySelector('.control-btn.primary')
+      || document.getElementById('cover-play-btn');
+
+    if (btn) {
+      // 检查按钮是否显示"播放"图标（说明当前是暂停状态）
+      const icon = btn.querySelector('i');
+      if (icon && icon.classList.contains('fa-play')) {
+        console.log('[PlaybackGuard] 通过 UI 播放按钮恢复播放');
+        btn.click();
+        recoveryAttempts = 0;
+        setTimeout(() => { isRecovering = false; }, 1000);
+        return true;
+      } else if (icon && icon.classList.contains('fa-pause')) {
+        // 按钮已经显示暂停图标，说明 UI 状态已经是播放中
+        // 此时可能是 media 底层的问题，尝试直接 play
+        const media = document.querySelector('audio:not([id*="ads"])');
+        if (media && media.paused) {
+          console.log('[PlaybackGuard] UI 显示播放中但 media 暂停，直接恢复 media');
+          media.play().catch(err => {
+            console.log('[PlaybackGuard] 直接恢复失败:', err.message);
+          });
+        }
+        setTimeout(() => { isRecovering = false; }, 1000);
+        return true;
+      }
+    }
+
+    // 如果找不到按钮，fallback 到直接 play（最后手段）
+    console.log('[PlaybackGuard] 未找到 UI 按钮，尝试直接 media.play()');
+    const media = document.querySelector('audio:not([id*="ads"])');
+    if (media && media.paused && !media.ended) {
+      media.play().catch(err => {
+        console.log('[PlaybackGuard] 直接 media.play() 失败:', err.message);
+      });
+    }
+    setTimeout(() => { isRecovering = false; }, 1000);
+    return false;
+  }
+
+  // ====== 用户暂停标记 ======
   const markUserPause = () => {
     userInitiatedPause = true;
-    // 50ms 后重置标志（足够让 pause 事件触发）
-    setTimeout(() => { userInitiatedPause = false; }, 200);
+    setTimeout(() => { userInitiatedPause = false; }, 300);
   };
 
-  // 监听我们注入的播放/暂停按钮点击和 IPC 切换命令
+  // 监听 IPC 切换命令（托盘控制）
   ipcRenderer.on('toggle-play-guard', markUserPause);
 
-  // 观察页面上的播放/暂停按钮点击
+  // 监听网页上的播放/暂停按钮点击
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('#play-toggle-button-desktop, .control-btn.primary, #cover-play-btn, [data-action="pause"], [data-action="play"]');
     if (btn) {
@@ -1046,109 +1094,116 @@ function initPlaybackGuard() {
     }
   }, true);
 
-  // 监听播放事件
+  // ====== 媒体事件监听 ======
+
+  // 播放开始
   document.addEventListener('play', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
       shouldBePlaying = true;
       recoveryAttempts = 0;
+      songTransitioning = false;
       console.log('[PlaybackGuard] 播放开始');
     }
   }, true);
 
-  // 监听暂停事件 - 只有用户主动暂停才清除 shouldBePlaying
+  // 暂停事件
   document.addEventListener('pause', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
       if (userInitiatedPause) {
         shouldBePlaying = false;
         console.log('[PlaybackGuard] 用户主动暂停');
-      } else {
-        // 非用户操作导致的暂停（缓冲、网络波动等），保持 shouldBePlaying = true
-        console.log('[PlaybackGuard] 检测到非用户暂停（可能是缓冲/网络问题），将尝试自动恢复');
+      } else if (songTransitioning) {
+        // 切歌过渡期的暂停，忽略（给 myhk 时间加载下一首）
+        console.log('[PlaybackGuard] 切歌过渡中的暂停，等待下一首加载...');
+      } else if (shouldBePlaying) {
+        // 非用户操作的意外暂停 → 立即通过 UI 恢复
+        console.log('[PlaybackGuard] 检测到意外暂停，800ms 后通过 UI 恢复');
+        setTimeout(() => {
+          if (shouldBePlaying && !userInitiatedPause && !songTransitioning) {
+            resumePlaybackViaUI();
+          }
+        }, 800);
       }
     }
   }, true);
 
-  // 监听播放结束
+  // 播放结束（切歌）
   document.addEventListener('ended', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
-      // 不清除 shouldBePlaying，因为播放列表可能会自动切换到下一首
-      console.log('[PlaybackGuard] 当前曲目播放结束');
+      // 标记切歌过渡期，给 myhk 播放器时间切换到下一首
+      songTransitioning = true;
+      console.log('[PlaybackGuard] 当前曲目播放结束，进入切歌过渡期');
+
+      // 5秒后检查：如果 myhk 没有自动切到下一首，尝试通过 UI 恢复
+      setTimeout(() => {
+        if (songTransitioning && shouldBePlaying) {
+          console.log('[PlaybackGuard] 切歌过渡超时，通过 UI 恢复播放');
+          songTransitioning = false;
+          resumePlaybackViaUI();
+        }
+      }, 5000);
     }
   }, true);
 
-  // 监听 waiting 事件（音频缓冲不足）
+  // 缓冲中
   document.addEventListener('waiting', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
       console.log('[PlaybackGuard] 音频缓冲中...');
     }
   }, true);
 
-  // 监听 stalled 事件（数据获取停滞）
+  // 数据获取停滞
   document.addEventListener('stalled', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
-      console.log('[PlaybackGuard] 数据获取停滞，等待恢复...');
-      // 主动尝试恢复
+      console.log('[PlaybackGuard] 数据获取停滞');
       if (shouldBePlaying && e.target.paused) {
         setTimeout(() => {
           if (shouldBePlaying && e.target.paused && !e.target.ended) {
-            console.log('[PlaybackGuard] stalled 后尝试恢复播放');
-            e.target.play().catch(err => {
-              console.log('[PlaybackGuard] stalled 恢复失败:', err.message);
-            });
+            console.log('[PlaybackGuard] stalled 后通过 UI 恢复');
+            resumePlaybackViaUI();
           }
         }, 2000);
       }
     }
   }, true);
 
-  // 监听 error 事件（播放错误）
+  // 播放错误
   document.addEventListener('error', (e) => {
     if (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO') {
       console.error('[PlaybackGuard] 媒体播放错误:', e.target.error?.message || '未知错误');
-      // 延迟后尝试恢复
       if (shouldBePlaying && recoveryAttempts < MAX_RECOVERY_ATTEMPTS) {
         recoveryAttempts++;
-        const delay = Math.min(2000 * recoveryAttempts, 10000); // 逐步增加延迟
+        const delay = Math.min(2000 * recoveryAttempts, 10000);
         console.log(`[PlaybackGuard] 将在 ${delay}ms 后尝试第 ${recoveryAttempts} 次恢复`);
         setTimeout(() => {
-          if (shouldBePlaying && e.target.paused) {
-            e.target.load(); // 重新加载音源
-            e.target.play().catch(err => {
-              console.log('[PlaybackGuard] 错误恢复失败:', err.message);
-            });
+          if (shouldBePlaying) {
+            resumePlaybackViaUI();
           }
         }, delay);
       }
     }
   }, true);
 
-  // 定期检查播放状态（每3秒）
+  // ====== 定期状态检查（兜底机制） ======
   setInterval(() => {
-    if (!shouldBePlaying) return;
+    if (!shouldBePlaying || isRecovering || songTransitioning) return;
 
-    const audioElements = document.querySelectorAll('audio');
-    const videoElements = document.querySelectorAll('video');
-    const allMedia = [...audioElements, ...videoElements];
+    const media = document.querySelector('audio:not([id*="ads"])');
+    if (!media) return;
 
-    allMedia.forEach(media => {
-      // 如果应该播放但实际暂停了，尝试恢复
-      if (media.paused && !media.ended && media.readyState >= 2) {
-        console.log('[PlaybackGuard] 检测到播放异常中断，尝试恢复...');
-        media.play().then(() => {
-          console.log('[PlaybackGuard] 播放已自动恢复');
-          recoveryAttempts = 0;
-        }).catch(err => {
-          console.log('[PlaybackGuard] 自动恢复播放失败:', err.message);
-        });
-      }
-      // 检测卡顿：如果 readyState 降到 2 以下且不是暂停状态
-      if (!media.paused && !media.ended && media.readyState < 2) {
-        console.log('[PlaybackGuard] 检测到音频缓冲不足 (readyState:', media.readyState, ')');
-      }
-    });
+    // 如果应该播放但实际暂停了，通过 UI 恢复
+    if (media.paused && !media.ended && media.readyState >= 2) {
+      console.log('[PlaybackGuard] 定期检查：检测到播放中断，通过 UI 恢复');
+      resumePlaybackViaUI();
+    }
+
+    // 检测卡顿
+    if (!media.paused && !media.ended && media.readyState < 2) {
+      console.log('[PlaybackGuard] 检测到音频缓冲不足 (readyState:', media.readyState, ')');
+    }
   }, 3000);
 
-  // 阻止页面可见性变化导致的节流
+  // ====== 防后台节流 ======
   try {
     Object.defineProperty(document, 'hidden', {
       get: () => false,
@@ -1162,15 +1217,13 @@ function initPlaybackGuard() {
     console.log('无法覆盖 visibilityState:', e.message);
   }
 
-  // 阻止 visibilitychange 事件传播（防止网页播放器因此暂停）
   document.addEventListener('visibilitychange', (e) => {
     if (shouldBePlaying) {
       e.stopImmediatePropagation();
-      console.log('[PlaybackGuard] 已阻止 visibilitychange 事件');
     }
   }, true);
 
-  console.log('[PlaybackGuard] 播放保持机制已启用（增强版）');
+  console.log('[PlaybackGuard] 播放保持机制已启用（v2 - UI同步版）');
 }
 
 // 心跳响应 - 响应主进程的心跳检测
